@@ -355,6 +355,21 @@ def fetch_weather(lat, lon, cache_minutes, lokit):
 # Build tokens -- merged clock + weather
 # ---------------------------------------------------------------------------
 
+_FULL_SIG_DIGITS = 6  # sig digits for tooltip full forms
+
+
+def _full_notation(value):
+    """Janus mantissa digits only, no 'magnitude*' prefix -- for tooltip full
+    forms.  Strips the prefix from a 6-sig-digit janus_notation() result so
+    the tooltip reads as a plain digit string rather than scientific notation."""
+    s = janus_notation(abs(value), sig_digits=_FULL_SIG_DIGITS)
+    mantissa = s.split("*", 1)[1] if "*" in s else s
+    if value < 0:
+        neg_map = {"0": "0", "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥",
+                   "①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5", "⑥": "6"}
+        mantissa = "".join(neg_map.get(c, c) for c in mantissa)
+    return mantissa
+
 
 def build_tokens(now, lokit, cache_minutes, sig_digits):
     # Decode Lokit -> coordinates
@@ -367,11 +382,12 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
     orit = (now - EPOCH).total_seconds() / CHRONIT_SECONDS
     dattit_str = janus_integer(dattit)
     orit_str = janus_notation(orit, sig_digits=sig_digits)
+    orit_full_str = _full_notation(orit)
 
     tokens = {
         # Clock tokens
         "dattit": dattit_str, "dattit_short": f"Da {dattit_str}", "dattit_full": f"{dattit_str} Dattit",
-        "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_str} Orit",
+        "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_full_str} Orit",
         "annit": "?", "annit_short": "An ?", "annit_full": "? Annit",
         "hemerit": "?", "hemerit_short": "He ?", "hemerit_full": "? Hemerit",
         "holiday": "", "month": "", "week": "", "weekday": "",
@@ -415,10 +431,11 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
             })
         solit = solit_for(now, ephem_lat, ephem_lon)
         solit_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=5)
+        solit_full_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=_FULL_SIG_DIGITS)
         tokens.update({
             "solit": solit_str,
             "solit_short": f"So {solit_str}",
-            "solit_full": f"{solit_str} Solit",
+            "solit_full": f"{solit_full_str} Solit",
         })
 
     # Weather tokens
@@ -435,13 +452,17 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
         wspd_str  = janus_notation(wind_ta,  sig_digits=sig_digits)
         wdir_str  = janus_notation(wdir_az,  sig_digits=sig_digits)
         prec_str  = janus_integer(precip_va)
+        temp_full_str = _full_notation(temp_th)
+        pres_full_str = _full_notation(pres_ba)
+        wspd_full_str = _full_notation(wind_ta)
+        wdir_full_str = _full_notation(wdir_az)
         tokens.update({
-            "temp": temp_str, "temp_short": f"Th {temp_str}", "temp_full": f"{temp_str} Thermit",
-            "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_str} Barit",
-            "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_str} Tachit",
-            "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_str} Azimit",
+            "temp": temp_str, "temp_short": f"Th {temp_str}", "temp_full": f"{temp_full_str} Thermit",
+            "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_full_str} Barit",
+            "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_full_str} Tachit",
+            "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_full_str} Azimit",
             "wind_short": f"Az {wdir_str} Ta {wspd_str}",
-            "wind_full": f"{wspd_str} Tachit  {wdir_str} Azimit",
+            "wind_full": f"{wspd_full_str} Tachit  {wdir_full_str} Azimit",
             "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
         })
     except Exception:
