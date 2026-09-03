@@ -339,7 +339,10 @@ def _full_notation(value):
     return mantissa
 
 
-def build_tokens(now, lokit, sig_digits):
+WEATHER_UNITS = {"temp", "pressure", "wind_speed", "wind_dir", "wind", "precip"}
+
+
+def build_tokens(now, lokit, sig_digits, need_weather=False):
     # Decode Lokit -> coordinates
     lon_west, lat_north = lokit_decode(lokit)
     ephem_lat = lat_north          # ephem: positive = north
@@ -409,6 +412,8 @@ def build_tokens(now, lokit, sig_digits):
         })
 
     # Weather tokens
+    if not need_weather:
+        return tokens
     try:
         # Open-Meteo uses standard geo (lon positive=east), same as ephem_lon
         weather = fetch_weather(lat_north, ephem_lon)
@@ -487,7 +492,8 @@ def main():
 
     try:
         now = datetime.now(timezone.utc)
-        tokens = build_tokens(now, args.lokit, args.sig_digits)
+        tokens = build_tokens(now, args.lokit, args.sig_digits,
+                              need_weather=args.unit in WEATHER_UNITS)
         if args.label:
             label = tokens[short_key]
         else:
