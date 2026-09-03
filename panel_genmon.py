@@ -490,6 +490,26 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
 # ---------------------------------------------------------------------------
 # Unit registry: unit name -> (short_key, full_key) into tokens dict
 # ---------------------------------------------------------------------------
+UNIT_DESC = {
+    "annit":      "Civilization year",
+    "dattit":     "Days since epoch",
+    "orit":       "Elapsed Chronits since epoch",
+    "hemerit":    "Civil date",
+    "solit":      "Time of day (solar noon = 0)",
+    "temp":       "Temperature",
+    "pressure":   "Atmospheric pressure",
+    "wind_speed": "Wind speed",
+    "wind_dir":   "Wind direction",
+    "wind":       "Wind",
+    "precip":     "Precipitation probability",
+    "feels":      "Apparent temperature",
+    "gusts":      "Wind gusts",
+    "humidity":   "Relative humidity",
+    "cloud":      "Cloud cover",
+    "visibility": "Visibility",
+    "lokit":      "Location",
+}
+
 # (short_key, full_key, bare_key)
 # short/full used when --label; bare used when label is off (default).
 UNIT_DISPLAY = {
@@ -540,7 +560,9 @@ def main():
             label = tokens[short_key]
         else:
             label = tokens[bare_key]
-        tooltip = tokens[full_key]
+        desc = UNIT_DESC.get(args.unit, "")
+        full_val = tokens[full_key]
+        tooltip = f"{desc}\n{full_val}" if desc else full_val
     except Exception as exc:
         label = f"[{args.unit} unavailable]"
         tooltip = str(exc)
