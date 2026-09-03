@@ -304,8 +304,10 @@ def fetch_weather(lat, lon):
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        "&current=temperature_2m,surface_pressure,wind_speed_10m,"
-        "wind_direction_10m,precipitation_probability"
+        "&current=temperature_2m,apparent_temperature,surface_pressure,"
+        "wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
+        "relative_humidity_2m,cloud_cover,visibility,"
+        "precipitation_probability"
         "&wind_speed_unit=ms"
     )
     with urllib.request.urlopen(url, timeout=10) as resp:
@@ -317,6 +319,11 @@ def fetch_weather(lat, lon):
         "wind_ms":      current["wind_speed_10m"],
         "wind_deg":     current["wind_direction_10m"],
         "precip_pct":   current.get("precipitation_probability", 0),
+        "feels_c":      current["apparent_temperature"],
+        "gusts_ms":     current["wind_gusts_10m"],
+        "humidity_pct": current["relative_humidity_2m"],
+        "cloud_pct":    current["cloud_cover"],
+        "visibility_m": current["visibility"],
     }
 
 # ---------------------------------------------------------------------------
@@ -339,7 +346,8 @@ def _full_notation(value):
     return mantissa
 
 
-WEATHER_UNITS = {"temp", "pressure", "wind_speed", "wind_dir", "wind", "precip"}
+WEATHER_UNITS = {"temp", "pressure", "wind_speed", "wind_dir", "wind", "precip",
+                 "feels", "gusts", "humidity", "cloud", "visibility"}
 
 
 def build_tokens(now, lokit, sig_digits, need_weather=False):
@@ -373,6 +381,11 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit", "wind_dir_bare": "?",
         "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit", "wind_bare": "?  ?",
         "precip": "?", "precip_short": "Va ?", "precip_full": "? Valit",
+        "feels": "?", "feels_short": "Fa ?", "feels_full": "? Thermit", "feels_bare": "?",
+        "gusts": "?", "gusts_short": "Gu ?", "gusts_full": "? Tachit", "gusts_bare": "?",
+        "humidity": "?", "humidity_short": "Hu ?", "humidity_full": "? Valit",
+        "cloud": "?", "cloud_short": "Cl ?", "cloud_full": "? Valit",
+        "visibility": "?", "visibility_short": "Vi ?", "visibility_full": "? Macrit", "visibility_bare": "?",
         "lokit": lokit,
         "lokit_short": lokit,
         "lokit_bare": lokit[3:] if lokit.startswith("Lo ") else lokit,
@@ -447,6 +460,28 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
             "wind_bare": f"{wdir_full_str}  {wspd_full_str}",
             "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
         })
+        feels_th     = (weather["feels_c"] + 273.15) / THERMIT_K
+        gusts_ta     = weather["gusts_ms"] / TACHIT_MS
+        humidity_va  = round(weather["humidity_pct"])
+        cloud_va     = round(weather["cloud_pct"])
+        visibility_ma = weather["visibility_m"] / _MACRIT_M
+        feels_fixed  = janus_mantissa_fixed(feels_th, fixed_magnitude=5, sig_digits=6)
+        gusts_str    = janus_notation(gusts_ta, sig_digits=sig_digits)
+        gusts_full_str = _full_notation(gusts_ta)
+        hum_str      = janus_integer(humidity_va)
+        cld_str      = janus_integer(cloud_va)
+        vis_str      = janus_notation(visibility_ma, sig_digits=sig_digits)
+        vis_full_str = _full_notation(visibility_ma)
+        tokens.update({
+            "feels": feels_fixed, "feels_short": f"Fa {feels_fixed}",
+            "feels_full": f"{feels_fixed} Thermit", "feels_bare": feels_fixed,
+            "gusts": gusts_str, "gusts_short": f"Gu {gusts_str}",
+            "gusts_full": f"{gusts_full_str} Tachit", "gusts_bare": gusts_full_str,
+            "humidity": hum_str, "humidity_short": f"Hu {hum_str}", "humidity_full": f"{hum_str} Valit",
+            "cloud": cld_str, "cloud_short": f"Cl {cld_str}", "cloud_full": f"{cld_str} Valit",
+            "visibility": vis_str, "visibility_short": f"Vi {vis_str}",
+            "visibility_full": f"{vis_full_str} Macrit", "visibility_bare": vis_full_str,
+        })
     except Exception:
         pass  # weather tokens stay as "?"
 
@@ -469,7 +504,12 @@ UNIT_DISPLAY = {
     "wind_dir":   ("wind_dir_short",   "wind_dir_full",   "wind_dir_bare"),
     "wind":       ("wind_short",       "wind_full",       "wind_bare"),
     "precip":     ("precip_short",     "precip_full",     "precip"),
-    "lokit":      ("lokit_short",       "lokit_short",     "lokit_bare"),
+    "feels":      ("feels_short",      "feels_full",      "feels_bare"),
+    "gusts":      ("gusts_short",      "gusts_full",      "gusts_bare"),
+    "humidity":   ("humidity_short",   "humidity_full",   "humidity"),
+    "cloud":      ("cloud_short",      "cloud_full",      "cloud"),
+    "visibility": ("visibility_short", "visibility_full", "visibility_bare"),
+    "lokit":      ("lokit_short",      "lokit_short",     "lokit_bare"),
 }
 
 # ---------------------------------------------------------------------------
