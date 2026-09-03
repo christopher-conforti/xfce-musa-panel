@@ -432,7 +432,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
             })
         solit = solit_for(now, ephem_lat, ephem_lon)
         solit_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=5)
-        solit_full_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=_FULL_SIG_DIGITS)
+        solit_full_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=5)
         tokens.update({
             "solit": solit_str,
             "solit_short": f"So {solit_str}",
