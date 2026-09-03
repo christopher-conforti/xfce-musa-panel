@@ -560,9 +560,11 @@ def main():
             label = tokens[short_key]
         else:
             label = tokens[bare_key]
-        desc = UNIT_DESC.get(args.unit, "")
-        full_val = tokens[full_key]
-        tooltip = f"{desc}\n{full_val}" if desc else full_val
+        if args.unit == "hemerit":
+            # date_label is itself descriptive text (no numeric value)
+            tooltip = tokens["date_label"]
+        else:
+            tooltip = UNIT_DESC.get(args.unit, "")
     except Exception as exc:
         label = f"[{args.unit} unavailable]"
         tooltip = str(exc)
