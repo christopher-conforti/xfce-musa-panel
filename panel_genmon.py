@@ -83,6 +83,12 @@ AZIMIT_RAD = 2 * math.pi / 12       # radians per Azimit (1/12 turn)
 _RHOMIT_W  = _DYNIT_N * _MACRIT_M / CHRONIT_SECONDS  # watts per Rhomit
 _PLATIT_M2 = _MACRIT_M ** 2                           # m² per Platit
 IRRADIANCE_CONV = _RHOMIT_W / _PLATIT_M2              # W/m² per Rhomit/Platit
+_GRAVIT_KG  = _DYNIT_N * CHRONIT_SECONDS**2 / _MACRIT_M  # kg per Gravit
+_RHGV_SVS   = _RHOMIT_W / _GRAVIT_KG                      # Sv/s per RhGv (= Rhomit/Gravit)
+USVH_TO_RHGV = (1e-6 / 3600.0) / _RHGV_SVS                # µSv/h → RhGv
+
+OPENRADIATION_API_KEY    = "bde8ebc61cb089b8cc997dd7a0d0a434"  # test key; replace with production
+OPENRADIATION_RADIUS_KM  = 50.0
 
 # ---------------------------------------------------------------------------
 # Default location: R-1992-Q4ETQXWDJD9 observatory
@@ -330,6 +336,28 @@ def fetch_weather(lat, lon):
         "irradiance_wm2":  current.get("shortwave_radiation", 0),
     }
 
+def fetch_radiation(lat, lon):
+    """Fetch the most recent radiation measurement from OpenRadiation
+    within OPENRADIATION_RADIUS_KM of lat/lon. Returns µSv/h or None."""
+    r_lat = OPENRADIATION_RADIUS_KM / 111.0
+    r_lon = r_lat / math.cos(math.radians(lat))
+    url = (
+        "https://request.openradiation.net/measurements"
+        f"?apiKey={OPENRADIATION_API_KEY}"
+        f"&minLatitude={lat - r_lat}&maxLatitude={lat + r_lat}"
+        f"&minLongitude={lon - r_lon}&maxLongitude={lon + r_lon}"
+    )
+    with urllib.request.urlopen(url, timeout=10) as resp:
+        raw = json.loads(resp.read())
+    measurements = raw.get("data", [])
+    qualified = [m for m in measurements if m.get("qualification") == "VALID"]
+    pool = qualified if qualified else measurements
+    if not pool:
+        return None
+    pool.sort(key=lambda m: m.get("startTime", ""), reverse=True)
+    return pool[0]["value"]  # µSv/h
+
+
 # ---------------------------------------------------------------------------
 # Build tokens -- merged clock + weather
 # ---------------------------------------------------------------------------
@@ -352,9 +380,10 @@ def _full_notation(value):
 
 WEATHER_UNITS = {"temp", "pressure", "wind_speed", "wind_dir", "wind", "precip",
                  "feels", "gusts", "humidity", "cloud", "visibility", "irradiance"}
+RADIATION_UNITS = {"radiation"}
 
 
-def build_tokens(now, lokit, sig_digits, need_weather=False):
+def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=False):
     # Decode Lokit -> coordinates
     lon_west, lat_north = lokit_decode(lokit)
     ephem_lat = lat_north          # ephem: positive = north
@@ -375,6 +404,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_bare_str} Orit",
         "orit_bare": orit_bare_str,
         "annit": "?", "annit_mag": "?", "annit_short": "An ?", "annit_full": "? Annit",
+        "radiation": "?", "radiation_bare": "?",
         "weekday_name": "?", "weekday_idx": "?",
         "week_name": "?", "week_idx": "?",
         "month_name": "?", "month_idx": "?",
@@ -521,6 +551,22 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
     except Exception:
         pass  # weather tokens stay as "?"
 
+    # Radiation tokens (OpenRadiation)
+    if need_radiation:
+        try:
+            usvh = fetch_radiation(lat_north, ephem_lon)
+            if usvh is not None:
+                rhgv = usvh * USVH_TO_RHGV
+                rad_str  = janus_notation(rhgv, sig_digits=sig_digits)
+                rad_bare = _full_notation(rhgv)
+            else:
+                rad_str = rad_bare = "?"
+        except Exception:
+            rad_str = rad_bare = "?"
+        tokens.update({
+            "radiation": rad_str, "radiation_bare": rad_bare,
+        })
+
     return tokens
 
 # ---------------------------------------------------------------------------
@@ -545,6 +591,7 @@ UNIT_DESC = {
     "visibility":  "Visibility",
     "irradiance":  "Solar irradiance",
     "lokit":       "Location",
+    "radiation":  "Ambient gamma dose rate",
     "weekday":    "Day of the week",
     "week":       "Week of the month",
     "month":      "Month of the year",
@@ -570,6 +617,7 @@ UNIT_LABEL = {
     "visibility": "Ma",
     "irradiance": "RhPl",
     "lokit":      "Lo",
+    "radiation":  "RhGv",
     "weekday":    "Dy",
     "week":       "Wk",
     "month":      "Mo",
@@ -598,6 +646,7 @@ UNIT_DISPLAY = {
     "visibility": ("visibility_bare",  "visibility"),
     "irradiance": ("irradiance_bare",  "irradiance"),
     "lokit":      ("lokit_bare",       "lokit_bare"),
+    "radiation":  ("radiation_bare",   "radiation"),
     "weekday":    ("weekday_name",      "weekday_idx"),
     "week":       ("week_name",         "week_idx"),
     "month":      ("month_name",        "month_idx"),
@@ -628,7 +677,8 @@ def main():
     try:
         now = datetime.now(timezone.utc)
         tokens = build_tokens(now, args.lokit, args.sig_digits,
-                              need_weather=args.unit in WEATHER_UNITS)
+                              need_weather=args.unit in WEATHER_UNITS,
+                              need_radiation=args.unit in RADIATION_UNITS)
 
         # Choose value based on --mag
         value = tokens[mag_key if args.mag else bare_key]
