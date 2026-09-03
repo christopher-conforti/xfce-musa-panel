@@ -383,7 +383,8 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "pressure": "?", "pressure_short": "Ba ?", "pressure_full": "? Barit", "pressure_bare": "?",
         "wind_speed": "?", "wind_speed_short": "Ta ?", "wind_speed_full": "? Tachit", "wind_speed_bare": "?",
         "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit", "wind_dir_bare": "?",
-        "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit", "wind_bare": "?  ?",
+        "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit",
+        "wind_bare": "?  ?", "wind_mag": "?  ?", "wind_labeled_bare": "Az ? Ta ?",
         "precip": "?", "precip_short": "Va ?", "precip_full": "? Valit",
         "feels": "?", "feels_short": "Th ?", "feels_full": "? Thermit", "feels_bare": "?",
         "gusts": "?", "gusts_short": "Ta ?", "gusts_full": "? Tachit", "gusts_bare": "?",
@@ -463,6 +464,8 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
             "wind_short": f"Az {wdir_str} Ta {wspd_str}",
             "wind_full": f"{wspd_full_str} Tachit  {wdir_full_str} Azimit",
             "wind_bare": f"{wdir_full_str}  {wspd_full_str}",
+            "wind_mag": f"{wdir_str}  {wspd_str}",
+            "wind_labeled_bare": f"Az {wdir_full_str} Ta {wspd_full_str}",
             "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
         })
         feels_th     = (weather["feels_c"] + 273.15) / THERMIT_K
@@ -470,6 +473,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         humidity_va  = round(weather["humidity_pct"])
         cloud_va     = round(weather["cloud_pct"])
         visibility_ma = weather["visibility_m"] / _MACRIT_M
+        feels_str    = janus_notation(feels_th, sig_digits=sig_digits)
         feels_fixed  = janus_mantissa_fixed(feels_th, fixed_magnitude=5, sig_digits=6)
         gusts_str    = janus_notation(gusts_ta, sig_digits=sig_digits)
         gusts_full_str = _full_notation(gusts_ta)
@@ -478,7 +482,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         vis_str      = janus_notation(visibility_ma, sig_digits=sig_digits)
         vis_full_str = _full_notation(visibility_ma)
         tokens.update({
-            "feels": feels_fixed, "feels_short": f"Th {feels_fixed}",
+            "feels": feels_str, "feels_short": f"Th {feels_fixed}",
             "feels_full": f"{feels_fixed} Thermit", "feels_bare": feels_fixed,
             "gusts": gusts_str, "gusts_short": f"Ta {gusts_str}",
             "gusts_full": f"{gusts_full_str} Tachit", "gusts_bare": gusts_full_str,
@@ -523,27 +527,52 @@ UNIT_DESC = {
     "lokit":       "Location",
 }
 
-# (short_key, full_key, bare_key)
-# short/full used when --label; bare used when label is off (default).
+# Unit label abbreviations for --label display.
+# "wind" is absent -- its labels (Az, Ta) are embedded in compound token strings.
+UNIT_LABEL = {
+    "annit":      "An",
+    "dattit":     "Da",
+    "orit":       "Or",
+    "hemerit":    "He",
+    "solit":      "So",
+    "temp":       "Th",
+    "pressure":   "Ba",
+    "wind_speed": "Ta",
+    "wind_dir":   "Az",
+    "precip":     "Va",
+    "feels":      "Th",
+    "gusts":      "Ta",
+    "humidity":   "Va",
+    "cloud":      "Va",
+    "visibility": "Ma",
+    "irradiance": "RhPl",
+    "lokit":      "Lo",
+}
+
+# (bare_key, mag_key)
+# bare_key: mantissa/fixed, no label (default, --mag off)
+# mag_key:  magnitude notation, no label (--mag on)
+# Solit always uses fixed notation regardless of --mag.
+# Wind is a special case in main() for --label composition.
 UNIT_DISPLAY = {
-    "annit":      ("annit_short",      "annit_full",      "annit"),
-    "dattit":     ("dattit_short",     "dattit_full",     "dattit"),
-    "orit":       ("orit_short",       "orit_full",       "orit_bare"),
-    "hemerit":    ("hemerit_short",    "date_label",      "hemerit"),
-    "solit":      ("solit_short",      "solit_full",      "solit_bare"),
-    "temp":       ("temp_short",       "temp_full",       "temp_bare"),
-    "pressure":   ("pressure_short",   "pressure_full",   "pressure_bare"),
-    "wind_speed": ("wind_speed_short", "wind_speed_full", "wind_speed_bare"),
-    "wind_dir":   ("wind_dir_short",   "wind_dir_full",   "wind_dir_bare"),
-    "wind":       ("wind_short",       "wind_full",       "wind_bare"),
-    "precip":     ("precip_short",     "precip_full",     "precip"),
-    "feels":      ("feels_short",      "feels_full",      "feels_bare"),
-    "gusts":      ("gusts_short",      "gusts_full",      "gusts_bare"),
-    "humidity":   ("humidity_short",   "humidity_full",   "humidity"),
-    "cloud":      ("cloud_short",      "cloud_full",      "cloud"),
-    "visibility":  ("visibility_short",  "visibility_full",  "visibility_bare"),
-    "irradiance":  ("irradiance_short",  "irradiance_full",  "irradiance_bare"),
-    "lokit":       ("lokit_short",       "lokit_short",      "lokit_bare"),
+    "annit":      ("annit",            "annit"),
+    "dattit":     ("dattit",           "dattit"),
+    "orit":       ("orit_bare",        "orit"),
+    "hemerit":    ("hemerit",          "hemerit"),
+    "solit":      ("solit_bare",       "solit_bare"),
+    "temp":       ("temp_bare",        "temp"),
+    "pressure":   ("pressure_bare",    "pressure"),
+    "wind_speed": ("wind_speed_bare",  "wind_speed"),
+    "wind_dir":   ("wind_dir_bare",    "wind_dir"),
+    "wind":       ("wind_bare",        "wind_mag"),
+    "precip":     ("precip",           "precip"),
+    "feels":      ("feels_bare",       "feels"),
+    "gusts":      ("gusts_bare",       "gusts"),
+    "humidity":   ("humidity",         "humidity"),
+    "cloud":      ("cloud",            "cloud"),
+    "visibility": ("visibility_bare",  "visibility"),
+    "irradiance": ("irradiance_bare",  "irradiance"),
+    "lokit":      ("lokit_bare",       "lokit_bare"),
 }
 
 # ---------------------------------------------------------------------------
@@ -558,24 +587,35 @@ def main():
                         help="which value to display (see UNITS in --help)")
     parser.add_argument("--label", action="store_true", default=False,
                         help="prefix output with unit abbreviation (e.g. 'Th', 'So')")
+    parser.add_argument("--mag", action="store_true", default=False,
+                        help="use magnitude notation instead of plain mantissa digits")
     parser.add_argument("--lokit", default=DEFAULT_LOKIT,
                         help="Lokit coordinate for location (Solit + weather)")
     parser.add_argument("--sig-digits", type=int, default=CONTINUOUS_SIG_DIGITS,
                         help=f"significant digits for continuous Janus values (default: {CONTINUOUS_SIG_DIGITS})")
     args = parser.parse_args()
 
-    short_key, full_key, bare_key = UNIT_DISPLAY[args.unit]
+    bare_key, mag_key = UNIT_DISPLAY[args.unit]
 
     try:
         now = datetime.now(timezone.utc)
         tokens = build_tokens(now, args.lokit, args.sig_digits,
                               need_weather=args.unit in WEATHER_UNITS)
+
+        # Choose value based on --mag
+        value = tokens[mag_key if args.mag else bare_key]
+
+        # Compose panel text: optionally prefix with unit label
         if args.label:
-            label = tokens[short_key]
+            if args.unit == "wind":
+                # compound unit: labels (Az, Ta) are embedded in the token
+                label = tokens["wind_short" if args.mag else "wind_labeled_bare"]
+            else:
+                label = f"{UNIT_LABEL[args.unit]} {value}"
         else:
-            label = tokens[bare_key]
+            label = value
+
         if args.unit == "hemerit":
-            # date_label is itself descriptive text (no numeric value)
             tooltip = tokens["date_label"]
         else:
             tooltip = UNIT_DESC.get(args.unit, "")
