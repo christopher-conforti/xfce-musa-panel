@@ -80,6 +80,9 @@ TACHIT_MS  = 3.36237192e-5          # m/s per Tachit
 THERMIT_K  = 6.65077402e-4          # kelvin per Thermit
 BARIT_PA   = _DYNIT_N / (_MACRIT_M ** 2)  # pascal per Barit
 AZIMIT_RAD = 2 * math.pi / 12       # radians per Azimit (1/12 turn)
+_RHOMIT_W  = _DYNIT_N * _MACRIT_M / CHRONIT_SECONDS  # watts per Rhomit
+_PLATIT_M2 = _MACRIT_M ** 2                           # m² per Platit
+IRRADIANCE_CONV = _RHOMIT_W / _PLATIT_M2              # W/m² per Rhomit/Platit
 
 # ---------------------------------------------------------------------------
 # Default location: R-1992-Q4ETQXWDJD9 observatory
@@ -307,7 +310,7 @@ def fetch_weather(lat, lon):
         "&current=temperature_2m,apparent_temperature,surface_pressure,"
         "wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
         "relative_humidity_2m,cloud_cover,visibility,"
-        "precipitation_probability"
+        "shortwave_radiation,precipitation_probability"
         "&wind_speed_unit=ms"
     )
     with urllib.request.urlopen(url, timeout=10) as resp:
@@ -323,7 +326,8 @@ def fetch_weather(lat, lon):
         "gusts_ms":     current["wind_gusts_10m"],
         "humidity_pct": current["relative_humidity_2m"],
         "cloud_pct":    current["cloud_cover"],
-        "visibility_m": current["visibility"],
+        "visibility_m":    current["visibility"],
+        "irradiance_wm2":  current.get("shortwave_radiation", 0),
     }
 
 # ---------------------------------------------------------------------------
@@ -347,7 +351,7 @@ def _full_notation(value):
 
 
 WEATHER_UNITS = {"temp", "pressure", "wind_speed", "wind_dir", "wind", "precip",
-                 "feels", "gusts", "humidity", "cloud", "visibility"}
+                 "feels", "gusts", "humidity", "cloud", "visibility", "irradiance"}
 
 
 def build_tokens(now, lokit, sig_digits, need_weather=False):
@@ -386,6 +390,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "humidity": "?", "humidity_short": "Hu ?", "humidity_full": "? Valit",
         "cloud": "?", "cloud_short": "Cl ?", "cloud_full": "? Valit",
         "visibility": "?", "visibility_short": "Vi ?", "visibility_full": "? Macrit", "visibility_bare": "?",
+        "irradiance": "?", "irradiance_short": "Rh ?", "irradiance_full": "? Rhomit/Platit", "irradiance_bare": "?",
         "lokit": lokit,
         "lokit_short": lokit,
         "lokit_bare": lokit[3:] if lokit.startswith("Lo ") else lokit,
@@ -482,6 +487,13 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
             "visibility": vis_str, "visibility_short": f"Vi {vis_str}",
             "visibility_full": f"{vis_full_str} Macrit", "visibility_bare": vis_full_str,
         })
+        irr_rp      = weather["irradiance_wm2"] / IRRADIANCE_CONV
+        irr_str     = janus_notation(irr_rp, sig_digits=sig_digits)
+        irr_full_str = _full_notation(irr_rp)
+        tokens.update({
+            "irradiance": irr_str, "irradiance_short": f"Rh {irr_str}",
+            "irradiance_full": f"{irr_full_str} Rhomit/Platit", "irradiance_bare": irr_full_str,
+        })
     except Exception:
         pass  # weather tokens stay as "?"
 
@@ -506,8 +518,9 @@ UNIT_DESC = {
     "gusts":      "Wind gusts",
     "humidity":   "Relative humidity",
     "cloud":      "Cloud cover",
-    "visibility": "Visibility",
-    "lokit":      "Location",
+    "visibility":  "Visibility",
+    "irradiance":  "Solar irradiance",
+    "lokit":       "Location",
 }
 
 # (short_key, full_key, bare_key)
@@ -528,8 +541,9 @@ UNIT_DISPLAY = {
     "gusts":      ("gusts_short",      "gusts_full",      "gusts_bare"),
     "humidity":   ("humidity_short",   "humidity_full",   "humidity"),
     "cloud":      ("cloud_short",      "cloud_full",      "cloud"),
-    "visibility": ("visibility_short", "visibility_full", "visibility_bare"),
-    "lokit":      ("lokit_short",      "lokit_short",     "lokit_bare"),
+    "visibility":  ("visibility_short",  "visibility_full",  "visibility_bare"),
+    "irradiance":  ("irradiance_short",  "irradiance_full",  "irradiance_bare"),
+    "lokit":       ("lokit_short",       "lokit_short",      "lokit_bare"),
 }
 
 # ---------------------------------------------------------------------------
