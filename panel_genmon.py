@@ -185,6 +185,49 @@ def lokit_decode(lokit_str):
         lat_deg = -lat_deg
     return lon_deg, lat_deg
 
+
+def _lokit_encode_frac(deg_abs):
+    """Encode abs(degrees)/360 as 5 balanced-dozenal Janus chars for a Lokit field."""
+    frac = deg_abs / 360.0
+    raw = []
+    for _ in range(5):
+        frac *= 12
+        d = int(frac)
+        frac -= d
+        raw.append(min(d, 11))
+    raw = [0] + raw
+    anything_nonzero_after = False
+    for i in range(len(raw) - 1, 0, -1):
+        d = raw[i]
+        if d > 6 or (d == 6 and anything_nonzero_after):
+            raw[i] = d - 12
+            raw[i - 1] += 1
+        if raw[i] != 0:
+            anything_nonzero_after = True
+    while len(raw) > 1 and raw[0] == 0:
+        raw.pop(0)
+    digits = raw[-5:]
+    while len(digits) < 5:
+        digits.insert(0, 0)
+    _circ = {1: "①", 2: "②", 3: "③", 4: "④", 5: "⑤", 6: "⑥"}
+    return "".join(_circ[-d] if d < 0 else str(d) for d in digits)
+
+
+def lokit_encode(lat, lon_east):
+    """Encode standard (lat north+, lon east+) to a Lokit string."""
+    lat_dir = "n" if lat >= 0 else "s"
+    lon_dir = "w" if lon_east <= 0 else "e"
+    return f"Lo {lon_dir}{_lokit_encode_frac(abs(lon_east))}{lat_dir}{_lokit_encode_frac(abs(lat))}"
+
+
+def _bearing_deg(lat1, lon1, lat2, lon2):
+    """Initial bearing in degrees [0, 360) from point 1 to point 2."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    x = math.sin(dl) * math.cos(p2)
+    y = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(x, y)) + 360) % 360
+
 # ---------------------------------------------------------------------------
 # Clock helper functions (verbatim from civil_clock_genmon.py)
 # ---------------------------------------------------------------------------
@@ -497,73 +540,74 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
         })
 
     # Weather tokens
-    if not need_weather:
+    if not need_weather and not need_radiation:
         return tokens
-    try:
-        # Open-Meteo uses standard geo (lon positive=east), same as ephem_lon
-        weather = fetch_weather(lat_north, ephem_lon)
-        temp_th   = (weather["temp_c"] + 273.15) / THERMIT_K
-        pres_ba   = (weather["pressure_hpa"] * 100.0) / BARIT_PA
-        wind_ta   = weather["wind_ms"] / TACHIT_MS
-        wdir_az   = (weather["wind_deg"] * math.pi / 180.0) / AZIMIT_RAD
-        precip_va = round(weather["precip_pct"])
-        temp_str  = janus_notation(temp_th,  sig_digits=sig_digits)
-        pres_str  = janus_notation(pres_ba,  sig_digits=sig_digits)
-        wspd_str  = janus_notation(wind_ta,  sig_digits=sig_digits)
-        wdir_str  = janus_notation(wdir_az,  sig_digits=sig_digits)
-        prec_str  = janus_integer(precip_va)
-        temp_fixed_str = janus_mantissa_fixed(temp_th, fixed_magnitude=5, sig_digits=6)
-        pres_full_str = _full_notation(pres_ba)
-        wspd_full_str = _full_notation(wind_ta)
-        wdir_full_str = _full_notation(wdir_az)
-        tokens.update({
-            "temp": temp_str, "temp_short": f"Th {temp_fixed_str}", "temp_full": f"{temp_fixed_str} Thermit",
-            "temp_bare": temp_fixed_str,
-            "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_full_str} Barit",
-            "pressure_bare": pres_full_str,
-            "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_full_str} Tachit",
-            "wind_speed_bare": wspd_full_str,
-            "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_full_str} Azimit",
-            "wind_dir_bare": wdir_full_str,
-            "wind_short": f"Az {wdir_str} Ta {wspd_str}",
-            "wind_full": f"{wspd_full_str} Tachit  {wdir_full_str} Azimit",
-            "wind_bare": f"{wdir_full_str}  {wspd_full_str}",
-            "wind_mag": f"{wdir_str}  {wspd_str}",
-            "wind_labeled_bare": f"Az {wdir_full_str} Ta {wspd_full_str}",
-            "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
-        })
-        feels_th     = (weather["feels_c"] + 273.15) / THERMIT_K
-        gusts_ta     = weather["gusts_ms"] / TACHIT_MS
-        humidity_va  = round(weather["humidity_pct"])
-        cloud_va     = round(weather["cloud_pct"])
-        visibility_ma = weather["visibility_m"] / _MACRIT_M
-        feels_str    = janus_notation(feels_th, sig_digits=sig_digits)
-        feels_fixed  = janus_mantissa_fixed(feels_th, fixed_magnitude=5, sig_digits=6)
-        gusts_str    = janus_notation(gusts_ta, sig_digits=sig_digits)
-        gusts_full_str = _full_notation(gusts_ta)
-        hum_str      = janus_integer(humidity_va)
-        cld_str      = janus_integer(cloud_va)
-        vis_str      = janus_notation(visibility_ma, sig_digits=sig_digits)
-        vis_full_str = _full_notation(visibility_ma)
-        tokens.update({
-            "feels": feels_str, "feels_short": f"Th {feels_fixed}",
-            "feels_full": f"{feels_fixed} Thermit", "feels_bare": feels_fixed,
-            "gusts": gusts_str, "gusts_short": f"Ta {gusts_str}",
-            "gusts_full": f"{gusts_full_str} Tachit", "gusts_bare": gusts_full_str,
-            "humidity": hum_str, "humidity_short": f"Va {hum_str}", "humidity_full": f"{hum_str} Valit",
-            "cloud": cld_str, "cloud_short": f"Va {cld_str}", "cloud_full": f"{cld_str} Valit",
-            "visibility": vis_str, "visibility_short": f"Ma {vis_str}",
-            "visibility_full": f"{vis_full_str} Macrit", "visibility_bare": vis_full_str,
-        })
-        irr_rp      = weather["irradiance_wm2"] / IRRADIANCE_CONV
-        irr_str     = janus_notation(irr_rp, sig_digits=sig_digits)
-        irr_full_str = _full_notation(irr_rp)
-        tokens.update({
-            "irradiance": irr_str, "irradiance_short": f"RhPl {irr_str}",
-            "irradiance_full": f"{irr_full_str} Rhomit/Platit", "irradiance_bare": irr_full_str,
-        })
-    except Exception:
-        pass  # weather tokens stay as "?"
+    if need_weather:
+        try:
+            # Open-Meteo uses standard geo (lon positive=east), same as ephem_lon
+            weather = fetch_weather(lat_north, ephem_lon)
+            temp_th   = (weather["temp_c"] + 273.15) / THERMIT_K
+            pres_ba   = (weather["pressure_hpa"] * 100.0) / BARIT_PA
+            wind_ta   = weather["wind_ms"] / TACHIT_MS
+            wdir_az   = (weather["wind_deg"] * math.pi / 180.0) / AZIMIT_RAD
+            precip_va = round(weather["precip_pct"])
+            temp_str  = janus_notation(temp_th,  sig_digits=sig_digits)
+            pres_str  = janus_notation(pres_ba,  sig_digits=sig_digits)
+            wspd_str  = janus_notation(wind_ta,  sig_digits=sig_digits)
+            wdir_str  = janus_notation(wdir_az,  sig_digits=sig_digits)
+            prec_str  = janus_integer(precip_va)
+            temp_fixed_str = janus_mantissa_fixed(temp_th, fixed_magnitude=5, sig_digits=6)
+            pres_full_str = _full_notation(pres_ba)
+            wspd_full_str = _full_notation(wind_ta)
+            wdir_full_str = _full_notation(wdir_az)
+            tokens.update({
+                "temp": temp_str, "temp_short": f"Th {temp_fixed_str}", "temp_full": f"{temp_fixed_str} Thermit",
+                "temp_bare": temp_fixed_str,
+                "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_full_str} Barit",
+                "pressure_bare": pres_full_str,
+                "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_full_str} Tachit",
+                "wind_speed_bare": wspd_full_str,
+                "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_full_str} Azimit",
+                "wind_dir_bare": wdir_full_str,
+                "wind_short": f"Az {wdir_str} Ta {wspd_str}",
+                "wind_full": f"{wspd_full_str} Tachit  {wdir_full_str} Azimit",
+                "wind_bare": f"{wdir_full_str}  {wspd_full_str}",
+                "wind_mag": f"{wdir_str}  {wspd_str}",
+                "wind_labeled_bare": f"Az {wdir_full_str} Ta {wspd_full_str}",
+                "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
+            })
+            feels_th     = (weather["feels_c"] + 273.15) / THERMIT_K
+            gusts_ta     = weather["gusts_ms"] / TACHIT_MS
+            humidity_va  = round(weather["humidity_pct"])
+            cloud_va     = round(weather["cloud_pct"])
+            visibility_ma = weather["visibility_m"] / _MACRIT_M
+            feels_str    = janus_notation(feels_th, sig_digits=sig_digits)
+            feels_fixed  = janus_mantissa_fixed(feels_th, fixed_magnitude=5, sig_digits=6)
+            gusts_str    = janus_notation(gusts_ta, sig_digits=sig_digits)
+            gusts_full_str = _full_notation(gusts_ta)
+            hum_str      = janus_integer(humidity_va)
+            cld_str      = janus_integer(cloud_va)
+            vis_str      = janus_notation(visibility_ma, sig_digits=sig_digits)
+            vis_full_str = _full_notation(visibility_ma)
+            tokens.update({
+                "feels": feels_str, "feels_short": f"Th {feels_fixed}",
+                "feels_full": f"{feels_fixed} Thermit", "feels_bare": feels_fixed,
+                "gusts": gusts_str, "gusts_short": f"Ta {gusts_str}",
+                "gusts_full": f"{gusts_full_str} Tachit", "gusts_bare": gusts_full_str,
+                "humidity": hum_str, "humidity_short": f"Va {hum_str}", "humidity_full": f"{hum_str} Valit",
+                "cloud": cld_str, "cloud_short": f"Va {cld_str}", "cloud_full": f"{cld_str} Valit",
+                "visibility": vis_str, "visibility_short": f"Ma {vis_str}",
+                "visibility_full": f"{vis_full_str} Macrit", "visibility_bare": vis_full_str,
+            })
+            irr_rp      = weather["irradiance_wm2"] / IRRADIANCE_CONV
+            irr_str     = janus_notation(irr_rp, sig_digits=sig_digits)
+            irr_full_str = _full_notation(irr_rp)
+            tokens.update({
+                "irradiance": irr_str, "irradiance_short": f"RhPl {irr_str}",
+                "irradiance_full": f"{irr_full_str} Rhomit/Platit", "irradiance_bare": irr_full_str,
+            })
+        except Exception:
+            pass  # weather tokens stay as "?"
 
     # Radiation tokens (OpenRadiation)
     if need_radiation:
