@@ -385,11 +385,11 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit", "wind_dir_bare": "?",
         "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit", "wind_bare": "?  ?",
         "precip": "?", "precip_short": "Va ?", "precip_full": "? Valit",
-        "feels": "?", "feels_short": "Fa ?", "feels_full": "? Thermit", "feels_bare": "?",
-        "gusts": "?", "gusts_short": "Gu ?", "gusts_full": "? Tachit", "gusts_bare": "?",
-        "humidity": "?", "humidity_short": "Hu ?", "humidity_full": "? Valit",
-        "cloud": "?", "cloud_short": "Cl ?", "cloud_full": "? Valit",
-        "visibility": "?", "visibility_short": "Vi ?", "visibility_full": "? Macrit", "visibility_bare": "?",
+        "feels": "?", "feels_short": "Th ?", "feels_full": "? Thermit", "feels_bare": "?",
+        "gusts": "?", "gusts_short": "Ta ?", "gusts_full": "? Tachit", "gusts_bare": "?",
+        "humidity": "?", "humidity_short": "Va ?", "humidity_full": "? Valit",
+        "cloud": "?", "cloud_short": "Va ?", "cloud_full": "? Valit",
+        "visibility": "?", "visibility_short": "Ma ?", "visibility_full": "? Macrit", "visibility_bare": "?",
         "irradiance": "?", "irradiance_short": "Rh ?", "irradiance_full": "? Rhomit/Platit", "irradiance_bare": "?",
         "lokit": lokit,
         "lokit_short": lokit,
@@ -478,13 +478,13 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         vis_str      = janus_notation(visibility_ma, sig_digits=sig_digits)
         vis_full_str = _full_notation(visibility_ma)
         tokens.update({
-            "feels": feels_fixed, "feels_short": f"Fa {feels_fixed}",
+            "feels": feels_fixed, "feels_short": f"Th {feels_fixed}",
             "feels_full": f"{feels_fixed} Thermit", "feels_bare": feels_fixed,
-            "gusts": gusts_str, "gusts_short": f"Gu {gusts_str}",
+            "gusts": gusts_str, "gusts_short": f"Ta {gusts_str}",
             "gusts_full": f"{gusts_full_str} Tachit", "gusts_bare": gusts_full_str,
-            "humidity": hum_str, "humidity_short": f"Hu {hum_str}", "humidity_full": f"{hum_str} Valit",
-            "cloud": cld_str, "cloud_short": f"Cl {cld_str}", "cloud_full": f"{cld_str} Valit",
-            "visibility": vis_str, "visibility_short": f"Vi {vis_str}",
+            "humidity": hum_str, "humidity_short": f"Va {hum_str}", "humidity_full": f"{hum_str} Valit",
+            "cloud": cld_str, "cloud_short": f"Va {cld_str}", "cloud_full": f"{cld_str} Valit",
+            "visibility": vis_str, "visibility_short": f"Ma {vis_str}",
             "visibility_full": f"{vis_full_str} Macrit", "visibility_bare": vis_full_str,
         })
         irr_rp      = weather["irradiance_wm2"] / IRRADIANCE_CONV
