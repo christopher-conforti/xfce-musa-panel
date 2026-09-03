@@ -374,6 +374,8 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit", "wind_bare": "?  ?",
         "precip": "?", "precip_short": "Va ?", "precip_full": "? Valit",
         "lokit": lokit,
+        "lokit_short": lokit,
+        "lokit_bare": lokit[3:] if lokit.startswith("Lo ") else lokit,
     }
 
     # Clock tokens requiring ephem
@@ -467,7 +469,7 @@ UNIT_DISPLAY = {
     "wind_dir":   ("wind_dir_short",   "wind_dir_full",   "wind_dir_bare"),
     "wind":       ("wind_short",       "wind_full",       "wind_bare"),
     "precip":     ("precip_short",     "precip_full",     "precip"),
-    "lokit":      ("lokit",            "lokit",           "lokit"),
+    "lokit":      ("lokit_short",       "lokit_short",     "lokit_bare"),
 }
 
 # ---------------------------------------------------------------------------
