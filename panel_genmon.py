@@ -374,7 +374,10 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "dattit_short": f"Da {dattit_str}", "dattit_full": f"{dattit_str} Dattit",
         "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_bare_str} Orit",
         "orit_bare": orit_bare_str,
-        "annit": "?", "annit_short": "An ?", "annit_full": "? Annit",
+        "annit": "?", "annit_mag": "?", "annit_short": "An ?", "annit_full": "? Annit",
+        "weekday_name": "?", "weekday_idx": "?",
+        "week_name": "?", "week_idx": "?",
+        "month_name": "?", "month_idx": "?",
         "hemerit": "?", "hemerit_short": "He ?", "hemerit_full": "? Hemerit",
         "holiday": "", "month": "", "week": "", "weekday": "",
         "day_of_month": "", "day_element": "",
@@ -416,7 +419,15 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         if info["holiday"]:
             tokens["holiday"] = info["holiday"]
             tokens["date_label"] = info["holiday"]
+            tokens.update({
+                "weekday_name": "?", "weekday_idx": "?",
+                "week_name": "?", "week_idx": "?",
+                "month_name": "?", "month_idx": "?",
+            })
         else:
+            wd_idx = janus_integer(DAYS.index(info["weekday"]) + 1)
+            wk_idx = janus_integer(WEEKS.index(info["week"]) + 1)
+            mo_idx = janus_integer(MONTHS.index(info["month"]) + 1)
             tokens.update({
                 "month": info["month"], "week": info["week"],
                 "weekday": info["weekday"], "day_of_month": info["day_of_month"],
@@ -425,6 +436,9 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
                     f"{info['day_element']}day, {info['weekday']} of "
                     f"{info['week']} of {info['month']}"
                 ),
+                "weekday_name": info["weekday"], "weekday_idx": wd_idx,
+                "week_name": info["week"], "week_idx": wk_idx,
+                "month_name": info["month"], "month_idx": mo_idx,
             })
         solit = solit_for(now, ephem_lat, ephem_lon)
         solit_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=5)
@@ -531,6 +545,9 @@ UNIT_DESC = {
     "visibility":  "Visibility",
     "irradiance":  "Solar irradiance",
     "lokit":       "Location",
+    "weekday":    "Day of the week",
+    "week":       "Week of the month",
+    "month":      "Month of the year",
 }
 
 # Unit label abbreviations for --label display.
@@ -553,6 +570,9 @@ UNIT_LABEL = {
     "visibility": "Ma",
     "irradiance": "RhPl",
     "lokit":      "Lo",
+    "weekday":    "Dy",
+    "week":       "Wk",
+    "month":      "Mo",
 }
 
 # (bare_key, mag_key)
@@ -578,6 +598,9 @@ UNIT_DISPLAY = {
     "visibility": ("visibility_bare",  "visibility"),
     "irradiance": ("irradiance_bare",  "irradiance"),
     "lokit":      ("lokit_bare",       "lokit_bare"),
+    "weekday":    ("weekday_name",      "weekday_idx"),
+    "week":       ("week_name",         "week_idx"),
+    "month":      ("month_name",        "month_idx"),
 }
 
 # ---------------------------------------------------------------------------
