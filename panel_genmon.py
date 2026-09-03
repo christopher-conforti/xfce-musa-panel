@@ -486,7 +486,7 @@ UNIT_DISPLAY = {
     "annit":      ("annit_short",      "annit_full",      "annit"),
     "dattit":     ("dattit_short",     "dattit_full",     "dattit"),
     "orit":       ("orit_short",       "orit_full",       "orit_bare"),
-    "hemerit":    ("hemerit_short",    "date_label",      "date_label"),
+    "hemerit":    ("hemerit_short",    "date_label",      "hemerit"),
     "solit":      ("solit_short",      "solit_full",      "solit_bare"),
     "temp":       ("temp_short",       "temp_full",       "temp_bare"),
     "pressure":   ("pressure_short",   "pressure_full",   "pressure_bare"),
@@ -524,10 +524,9 @@ def main():
         tokens = build_tokens(now, args.lokit, args.cache_minutes, args.sig_digits)
         if args.label:
             label = tokens[short_key]
-            tooltip = tokens[full_key]
         else:
             label = tokens[bare_key]
-            tooltip = tokens[bare_key]
+        tooltip = tokens[full_key]
     except Exception as exc:
         label = f"[{args.unit} unavailable]"
         tooltip = str(exc)
