@@ -703,6 +703,31 @@ UNIT_LABEL = {
     "month":      "Mo",
 }
 
+
+# Full Civilization unit names for --label suffix display.
+UNIT_FULL = {
+    "annit":      "Annit",
+    "dattit":     "Dattit",
+    "orit":       "Orit",
+    "hemerit":    "Hemerit",
+    "solit":      "Solit",
+    "temp":       "Thermit",
+    "pressure":   "Barit",
+    "wind_speed": "Tachit",
+    "wind_dir":   "Azimit",
+    "precip":     "Valit",
+    "feels":      "Thermit",
+    "gusts":      "Tachit",
+    "humidity":   "Valit",
+    "cloud":      "Valit",
+    "visibility": "Macrit",
+    "irradiance": "Rhomit/Platit",
+    "radiation":  "Rhomit/Gravit",
+    "lokit":      "Lokit",
+    "weekday":    "Weekday",
+    "week":       "Week",
+    "month":      "Month",
+}
 # (bare_key, mag_key)
 # bare_key: mantissa/fixed, no label (default, --mag off)
 # mag_key:  magnitude notation, no label (--mag on)
@@ -743,7 +768,9 @@ def main():
     parser.add_argument("--unit", required=True, choices=sorted(UNIT_DISPLAY),
                         help="which value to display (see UNITS in --help)")
     parser.add_argument("--label", action="store_true", default=False,
-                        help="prefix output with unit abbreviation (e.g. 'Th', 'So')")
+                        help="suffix output with full unit name (e.g. '0 Valit')")
+    parser.add_argument("--abbrev", action="store_true", default=False,
+                        help="prefix output with unit abbreviation (e.g. 'Va 0')")
     parser.add_argument("--mag", action="store_true", default=False,
                         help="use magnitude notation instead of plain mantissa digits")
     parser.add_argument("--lokit", default=DEFAULT_LOKIT,
@@ -763,10 +790,16 @@ def main():
         # Choose value based on --mag
         value = tokens[mag_key if args.mag else bare_key]
 
-        # Compose panel text: optionally prefix with unit label
+        # Compose panel text
         if args.label:
             if args.unit == "wind":
-                # compound unit: labels (Az, Ta) are embedded in the token
+                dir_v  = tokens["wind_dir"   if args.mag else "wind_dir_bare"]
+                spd_v  = tokens["wind_speed" if args.mag else "wind_speed_bare"]
+                label  = f"{dir_v} Azimit, {spd_v} Tachit"
+            else:
+                label = f"{value} {UNIT_FULL[args.unit]}"
+        elif args.abbrev:
+            if args.unit == "wind":
                 label = tokens["wind_short" if args.mag else "wind_labeled_bare"]
             else:
                 label = f"{UNIT_LABEL[args.unit]} {value}"
