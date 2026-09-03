@@ -57,11 +57,8 @@ UNITS:
 """
 
 import argparse
-import hashlib
 import json
 import math
-import os
-import time
 import urllib.request
 from datetime import datetime, timezone
 
@@ -297,40 +294,13 @@ def solit_for(dt, lat, lon):
     return seconds / CHRONIT_SECONDS
 
 # ---------------------------------------------------------------------------
-# Weather cache + fetch (verbatim from weather_genmon.py)
+# Weather fetch
 # ---------------------------------------------------------------------------
-CACHE_DIR = "/tmp"
 
 
-def _cache_path(lokit):
-    h = hashlib.sha256(lokit.encode()).hexdigest()[:8]
-    return os.path.join(CACHE_DIR, f"xfce_musa_janus_weather_{h}.json")
-
-
-def _load_cache(lokit, max_age_seconds):
-    path = _cache_path(lokit)
-    try:
-        with open(path) as f:
-            data = json.load(f)
-        if time.time() - data.get("fetched_at", 0) < max_age_seconds:
-            return data["weather"]
-    except (OSError, KeyError, json.JSONDecodeError):
-        pass
-    return None
-
-
-def _save_cache(lokit, weather):
-    path = _cache_path(lokit)
-    with open(path, "w") as f:
-        json.dump({"fetched_at": time.time(), "weather": weather}, f)
-
-
-def fetch_weather(lat, lon, cache_minutes, lokit):
-    """Fetch current weather from Open-Meteo; cache results.
+def fetch_weather(lat, lon):
+    """Fetch current weather from Open-Meteo.
     lat/lon are standard geographic decimal degrees (lon positive=east)."""
-    cached = _load_cache(lokit, cache_minutes * 60)
-    if cached is not None:
-        return cached
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
@@ -341,15 +311,13 @@ def fetch_weather(lat, lon, cache_minutes, lokit):
     with urllib.request.urlopen(url, timeout=10) as resp:
         raw = json.loads(resp.read())
     current = raw["current"]
-    weather = {
+    return {
         "temp_c":       current["temperature_2m"],
         "pressure_hpa": current["surface_pressure"],
         "wind_ms":      current["wind_speed_10m"],
         "wind_deg":     current["wind_direction_10m"],
         "precip_pct":   current.get("precipitation_probability", 0),
     }
-    _save_cache(lokit, weather)
-    return weather
 
 # ---------------------------------------------------------------------------
 # Build tokens -- merged clock + weather
@@ -371,7 +339,7 @@ def _full_notation(value):
     return mantissa
 
 
-def build_tokens(now, lokit, cache_minutes, sig_digits):
+def build_tokens(now, lokit, sig_digits):
     # Decode Lokit -> coordinates
     lon_west, lat_north = lokit_decode(lokit)
     ephem_lat = lat_north          # ephem: positive = north
@@ -443,7 +411,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
     # Weather tokens
     try:
         # Open-Meteo uses standard geo (lon positive=east), same as ephem_lon
-        weather = fetch_weather(lat_north, ephem_lon, cache_minutes, lokit)
+        weather = fetch_weather(lat_north, ephem_lon)
         temp_th   = (weather["temp_c"] + 273.15) / THERMIT_K
         pres_ba   = (weather["pressure_hpa"] * 100.0) / BARIT_PA
         wind_ta   = weather["wind_ms"] / TACHIT_MS
@@ -513,15 +481,13 @@ def main():
                         help="Lokit coordinate for location (Solit + weather)")
     parser.add_argument("--sig-digits", type=int, default=CONTINUOUS_SIG_DIGITS,
                         help=f"significant digits for continuous Janus values (default: {CONTINUOUS_SIG_DIGITS})")
-    parser.add_argument("--cache-minutes", type=int, default=15,
-                        help="cache API response for this many minutes (default: 15)")
     args = parser.parse_args()
 
     short_key, full_key, bare_key = UNIT_DISPLAY[args.unit]
 
     try:
         now = datetime.now(timezone.utc)
-        tokens = build_tokens(now, args.lokit, args.cache_minutes, args.sig_digits)
+        tokens = build_tokens(now, args.lokit, args.sig_digits)
         if args.label:
             label = tokens[short_key]
         else:
