@@ -88,7 +88,7 @@ _RHGV_SVS   = _RHOMIT_W / _GRAVIT_KG                      # Sv/s per RhGv (= Rho
 USVH_TO_RHGV = (1e-6 / 3600.0) / _RHGV_SVS                # µSv/h → RhGv
 
 OPENRADIATION_API_KEY    = "bde8ebc61cb089b8cc997dd7a0d0a434"  # test key; replace with production
-OPENRADIATION_RADIUS_KM  = 50.0
+OPENRADIATION_SEARCH_DEG = 5.0   # bounding-box half-width; closest result is selected by distance
 
 # ---------------------------------------------------------------------------
 # Default location: R-1992-Q4ETQXWDJD9 observatory
@@ -336,16 +336,25 @@ def fetch_weather(lat, lon):
         "irradiance_wm2":  current.get("shortwave_radiation", 0),
     }
 
+def _haversine_km(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
 def fetch_radiation(lat, lon):
-    """Fetch the most recent radiation measurement from OpenRadiation
-    within OPENRADIATION_RADIUS_KM of lat/lon. Returns µSv/h or None."""
-    r_lat = OPENRADIATION_RADIUS_KM / 111.0
-    r_lon = r_lat / math.cos(math.radians(lat))
+    """Fetch radiation measurements from OpenRadiation within
+    OPENRADIATION_SEARCH_DEG of lat/lon, then return the closest result
+    as a dict with value (µSv/h), distance_km, and captured_at, or None."""
+    d = OPENRADIATION_SEARCH_DEG
     url = (
         "https://request.openradiation.net/measurements"
         f"?apiKey={OPENRADIATION_API_KEY}"
-        f"&minLatitude={lat - r_lat}&maxLatitude={lat + r_lat}"
-        f"&minLongitude={lon - r_lon}&maxLongitude={lon + r_lon}"
+        f"&minLatitude={lat - d}&maxLatitude={lat + d}"
+        f"&minLongitude={lon - d}&maxLongitude={lon + d}"
     )
     with urllib.request.urlopen(url, timeout=10) as resp:
         raw = json.loads(resp.read())
@@ -354,8 +363,13 @@ def fetch_radiation(lat, lon):
     pool = qualified if qualified else measurements
     if not pool:
         return None
-    pool.sort(key=lambda m: m.get("startTime", ""), reverse=True)
-    return pool[0]["value"]  # µSv/h
+    for m in pool:
+        m["_dist"] = _haversine_km(lat, lon, m["latitude"], m["longitude"])
+    pool.sort(key=lambda m: m["_dist"])
+    best = pool[0]
+    return {"usvh": best["value"], "distance_km": best["_dist"],
+            "captured_at": best.get("startTime", ""),
+            "latitude": best["latitude"], "longitude": best["longitude"]}
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +418,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
         "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_bare_str} Orit",
         "orit_bare": orit_bare_str,
         "annit": "?", "annit_mag": "?", "annit_short": "An ?", "annit_full": "? Annit",
-        "radiation": "?", "radiation_bare": "?",
+        "radiation": "?", "radiation_bare": "?", "radiation_desc": "Ambient gamma dose rate",
         "weekday_name": "?", "weekday_idx": "?",
         "week_name": "?", "week_idx": "?",
         "month_name": "?", "month_idx": "?",
@@ -554,17 +568,33 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
     # Radiation tokens (OpenRadiation)
     if need_radiation:
         try:
-            usvh = fetch_radiation(lat_north, ephem_lon)
-            if usvh is not None:
-                rhgv = usvh * USVH_TO_RHGV
+            result = fetch_radiation(lat_north, ephem_lon)
+            if result is not None:
+                rhgv = result["usvh"] * USVH_TO_RHGV
                 rad_str  = janus_notation(rhgv, sig_digits=sig_digits)
                 rad_bare = _full_notation(rhgv)
+                src_lat, src_lon = result["latitude"], result["longitude"]
+                src_lokit  = lokit_encode(src_lat, src_lon)
+                bearing    = _bearing_deg(lat_north, ephem_lon, src_lat, src_lon)
+                azimit_val = bearing / 30.0  # 1 Azimit = 30°
+                azimit_str = janus_notation(azimit_val, sig_digits=sig_digits)
+                dist_ma    = result["distance_km"] * 1000.0 / _MACRIT_M
+                dist_ma_str = janus_notation(dist_ma, sig_digits=sig_digits)
+                cap_at     = result["captured_at"][:10] if result["captured_at"] else "?"
+                rad_desc   = (
+                    f"Ambient gamma dose rate\n"
+                    f"{src_lokit}\n"
+                    f"{azimit_str} Az · {dist_ma_str} Ma · {cap_at}"
+                )
             else:
                 rad_str = rad_bare = "?"
+                rad_desc = "Ambient gamma dose rate\nNo nearby measurements"
         except Exception:
             rad_str = rad_bare = "?"
+            rad_desc = "Ambient gamma dose rate"
         tokens.update({
             "radiation": rad_str, "radiation_bare": rad_bare,
+            "radiation_desc": rad_desc,
         })
 
     return tokens
@@ -695,6 +725,8 @@ def main():
 
         if args.unit == "hemerit":
             tooltip = tokens["date_label"]
+        elif args.unit == "radiation":
+            tooltip = tokens.get("radiation_desc", UNIT_DESC["radiation"])
         else:
             tooltip = UNIT_DESC.get(args.unit, "")
     except Exception as exc:
