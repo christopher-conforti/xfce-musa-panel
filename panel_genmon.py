@@ -396,7 +396,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
         "date_label": "(needs ephem)",
         "solit": "?", "solit_short": "So ?", "solit_full": "? Solit", "solit_bare": "?",
         # Weather tokens (prefilled with ? for error cases)
-        "temp": "?", "temp_short": "Th ?", "temp_full": "Th ?", "temp_bare": "?",
+        "temp": "?", "temp_short": "Th ?", "temp_full": "? Thermit", "temp_bare": "?",
         "pressure": "?", "pressure_short": "Ba ?", "pressure_full": "? Barit", "pressure_bare": "?",
         "wind_speed": "?", "wind_speed_short": "Ta ?", "wind_speed_full": "? Tachit", "wind_speed_bare": "?",
         "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit", "wind_dir_bare": "?",
@@ -459,7 +459,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
         wspd_full_str = _full_notation(wind_ta)
         wdir_full_str = _full_notation(wdir_az)
         tokens.update({
-            "temp": temp_str, "temp_short": f"Th {temp_fixed_str}", "temp_full": f"Th {temp_fixed_str}",
+            "temp": temp_str, "temp_short": f"Th {temp_fixed_str}", "temp_full": f"{temp_fixed_str} Thermit",
             "temp_bare": temp_fixed_str,
             "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_full_str} Barit",
             "pressure_bare": pres_full_str,
