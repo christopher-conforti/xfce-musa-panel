@@ -390,7 +390,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         "humidity": "?", "humidity_short": "Va ?", "humidity_full": "? Valit",
         "cloud": "?", "cloud_short": "Va ?", "cloud_full": "? Valit",
         "visibility": "?", "visibility_short": "Ma ?", "visibility_full": "? Macrit", "visibility_bare": "?",
-        "irradiance": "?", "irradiance_short": "Rh ?", "irradiance_full": "? Rhomit/Platit", "irradiance_bare": "?",
+        "irradiance": "?", "irradiance_short": "RhPl ?", "irradiance_full": "? Rhomit/Platit", "irradiance_bare": "?",
         "lokit": lokit,
         "lokit_short": lokit,
         "lokit_bare": lokit[3:] if lokit.startswith("Lo ") else lokit,
@@ -491,7 +491,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         irr_str     = janus_notation(irr_rp, sig_digits=sig_digits)
         irr_full_str = _full_notation(irr_rp)
         tokens.update({
-            "irradiance": irr_str, "irradiance_short": f"Rh {irr_str}",
+            "irradiance": irr_str, "irradiance_short": f"RhPl {irr_str}",
             "irradiance_full": f"{irr_full_str} Rhomit/Platit", "irradiance_bare": irr_full_str,
         })
     except Exception:
