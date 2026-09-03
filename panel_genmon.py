@@ -452,12 +452,12 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
         wspd_str  = janus_notation(wind_ta,  sig_digits=sig_digits)
         wdir_str  = janus_notation(wdir_az,  sig_digits=sig_digits)
         prec_str  = janus_integer(precip_va)
-        temp_full_str = _full_notation(temp_th)
+        temp_fixed_str = janus_mantissa_fixed(temp_th, fixed_magnitude=5, sig_digits=6)
         pres_full_str = _full_notation(pres_ba)
         wspd_full_str = _full_notation(wind_ta)
         wdir_full_str = _full_notation(wdir_az)
         tokens.update({
-            "temp": temp_str, "temp_short": f"Th {temp_str}", "temp_full": f"{temp_full_str} Thermit",
+            "temp": temp_str, "temp_short": f"Th {temp_fixed_str}", "temp_full": f"Th {temp_fixed_str}",
             "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_full_str} Barit",
             "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_full_str} Tachit",
             "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_full_str} Azimit",
