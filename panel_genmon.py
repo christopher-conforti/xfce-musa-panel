@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Panel -- a combined genmon script for the Xfce panel's Generic Monitor plugin.
+Panel -- a modular genmon script for the Xfce panel's Generic Monitor plugin.
 
 Merges civil_clock_genmon.py (Annit, Hemerit, Solit, Dattit, Orit) with
 weather_genmon.py (Thermit, Barit, Tachit, Azimit, Valit) into a single
-plugin driven by a single --lokit argument. The Lokit supplies both the
-geographic coordinates for Open-Meteo weather fetch AND the longitude/latitude
-needed for Solit (true local solar noon), so only one argument is needed for
-all per-location calculations.
+script. Each invocation outputs exactly ONE unit, determined by --unit.
+Run multiple genmon instances, each with a different --unit, to build a
+composable panel where every slot is independently movable.
+
+Panel text: the unit's short form (e.g. "An 1992")
+Tooltip:    the unit's full form (e.g. "1992 Annit")
 
 EPOCH is proleptic Gregorian April 1, AD 33, 12:15:00 UTC -- the
 Humphreys-Waddington crucifixion date (Julian April 3, 14:15 Jerusalem
@@ -15,85 +17,43 @@ local time) converted to UTC. CHRONIT_SECONDS is the exact constant from
 the cca skillset (janus-units/scripts/).
 
 Annit, Hemerit, and Solit all require the `ephem` package. If ephem is not
-installed the script still outputs Dattit, Orit, and all weather tokens, and
-fills in placeholders for the ephem-dependent values. Install with:
+installed the script still outputs Dattit, Orit, and all weather units, and
+fills in "?" for the ephem-dependent values. Install with:
     pip install ephem --break-system-packages
 
 Weather data is fetched from https://api.open-meteo.com using only the Python
 standard library (urllib.request) -- no pip dependencies required for the
 weather side. API responses are cached in /tmp to limit fetch frequency.
 
-FORMAT STRINGS: --format controls the panel text, --tooltip-format controls
-the hover tooltip. Both use Python str.format() with these tokens:
+USAGE:
+    python3 panel_genmon.py --unit annit
+    python3 panel_genmon.py --unit solit --lokit "Lo w26②⑤4n14③3②"
+    python3 panel_genmon.py --unit temp   --lokit "Lo w26②⑤4n14③3②" --cache-minutes 30
 
-    Clock tokens (from civil_clock_genmon.py):
+ARGUMENTS:
+    --unit            Which value to display (required). One of:
+                        annit, dattit, orit, hemerit, solit,
+                        temp, pressure, wind_speed, wind_dir, wind, precip,
+                        lokit
+    --lokit           Lokit coordinate of the location (default: R-1992-Q4ETQXWDJD9).
+                      Required for Solit and all weather units.
+    --sig-digits      Significant digits for continuous Janus values (default 3).
+    --cache-minutes   Cache the Open-Meteo API response for this many minutes
+                      before re-fetching (default 15). Cache lives in /tmp.
 
-    {annit}         Annit in exact Janus balanced-dozenal notation, or ? if
-                    ephem is unavailable
-    {annit_short}   "An <janus notation>" (the official abbreviation)
-    {annit_full}    "<janus notation> Annit"
-    {dattit}        Dattit (days since epoch) in exact Janus notation
-    {dattit_short}  "Da <janus notation>"
-    {dattit_full}   "<janus notation> Dattit"
-    {hemerit}       raw Hemerit acronym, e.g. "Aquita"
-    {hemerit_short} "He Aquita"
-    {hemerit_full}  "Aquita Hemerit"
-    {orit}          Orit in Janus balanced-dozenal notation
-    {orit_short}    "Or <janus notation>"
-    {orit_full}     "<janus notation> Orit"
-    {holiday}       holiday name (with day count if multi-day), or "" if not
-                    a holiday
-    {month}         zodiac month name, or "" during a holiday
-    {week}          element week name ("Stoneweek" etc.), or ""
-    {weekday}       Olympian day name ("Apollo" etc.), or ""
-    {day_of_month}  1-30, or "" during a holiday
-    {day_element}   the element this specific day counts as within its
-                    week's rotation ("Fire", "Water", etc.), or "" during a
-                    holiday
-    {date_label}    holiday name, or musa.bet's spoken phrasing:
-                    "Dayelementday, Weekday of Week of Month", e.g.
-                    "Fireday, Aphrodite of Earthweek of Leo"
-    {solit}         Solit as a 5-digit Janus mantissa pinned at magnitude
-                    ① (12⁻¹ place), no magnitude prefix -- sign is carried
-                    by the digits (negative in the morning, positive in the
-                    afternoon)
-    {solit_short}   "So <janus notation>"
-    {solit_full}    "<janus notation> Solit"
-
-    Weather tokens (from weather_genmon.py):
-
-    {temp}              Temperature in Thermit, Janus notation
-    {temp_short}        "Th <value>" (official unit abbreviation)
-    {temp_full}         "<value> Thermit"
-    {pressure}          Atmospheric pressure in Barit, Janus notation
-    {pressure_short}    "Ba <value>"
-    {pressure_full}     "<value> Barit"
-    {wind_speed}        Wind speed in Tachit, Janus notation
-    {wind_speed_short}  "Ta <value>"
-    {wind_speed_full}   "<value> Tachit"
-    {wind_dir}          Wind direction in Azimit, Janus notation
-                        (0 = north, increases clockwise)
-    {wind_dir_short}    "Az <value>"
-    {wind_dir_full}     "<value> Azimit"
-    {wind_short}        "Az <dir> Ta <speed>" (compact combined form)
-    {precip}            Precipitation probability in Valit (0-100 integer
-                        scale per musa.bet; stored as a whole-number
-                        janus_integer)
-    {precip_short}      "Va <value>"
-    {precip_full}       "<value> Valit"
-    {lokit}             The Lokit string as supplied to --lokit
-
-Short forms use the unit's official abbreviation (An, Da, He, Or, So, Th,
-Ba, Ta, Az, Va) the way musa.bet itself writes them. Full forms spell the
-unit name out, with the number leading the way you'd say it aloud ("30
-Dattit", not "Dattit 30") -- except Hemerit, which isn't a number at all,
-so its full form is just the acronym followed by the unit name.
-
-Examples:
-    python3 panel_genmon.py
-    python3 panel_genmon.py --lokit "Lo w26②⑤4n14③3②"
-    python3 panel_genmon.py --format "{hemerit_short}, {annit_short}, {solit_short}  |  {temp_short}  {wind_short}"
-    python3 panel_genmon.py --sig-digits 4 --cache-minutes 30
+UNITS:
+    annit       An <janus>         <janus> Annit
+    dattit      Da <janus>         <janus> Dattit
+    orit        Or <janus>         <janus> Orit
+    hemerit     He <acronym>       spoken calendar date (e.g. Fireday, Aphrodite of Earthweek of Leo)
+    solit       So <janus>         <janus> Solit
+    temp        Th <janus>         <janus> Thermit
+    pressure    Ba <janus>         <janus> Barit
+    wind_speed  Ta <janus>         <janus> Tachit
+    wind_dir    Az <janus>         <janus> Azimit
+    wind        Az <dir> Ta <spd>  <spd> Tachit  <dir> Azimit
+    precip      Va <int>           <int> Valit
+    lokit       <lokit string>     <lokit string>
 """
 
 import argparse
@@ -103,7 +63,7 @@ import math
 import os
 import time
 import urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from janus_notation import janus_notation, janus_integer, janus_mantissa_fixed
 
@@ -423,7 +383,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
         "pressure": "?", "pressure_short": "Ba ?", "pressure_full": "? Barit",
         "wind_speed": "?", "wind_speed_short": "Ta ?", "wind_speed_full": "? Tachit",
         "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit",
-        "wind_short": "Az ? Ta ?",
+        "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit",
         "precip": "?", "precip_short": "Va ?", "precip_full": "? Valit",
         "lokit": lokit,
     }
@@ -481,6 +441,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
             "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_str} Tachit",
             "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_str} Azimit",
             "wind_short": f"Az {wdir_str} Ta {wspd_str}",
+            "wind_full": f"{wspd_str} Tachit  {wdir_str} Azimit",
             "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
         })
     except Exception:
@@ -489,59 +450,54 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
     return tokens
 
 # ---------------------------------------------------------------------------
-# Render
+# Unit registry: unit name -> (short_key, full_key) into tokens dict
 # ---------------------------------------------------------------------------
-
-
-def render(fmt, tokens):
-    try:
-        return fmt.format(**tokens)
-    except KeyError as e:
-        valid = ", ".join(sorted(tokens.keys()))
-        return f"[format error: unknown token {e}; valid: {valid}]"
+UNIT_DISPLAY = {
+    "annit":      ("annit_short",      "annit_full"),
+    "dattit":     ("dattit_short",     "dattit_full"),
+    "orit":       ("orit_short",       "orit_full"),
+    "hemerit":    ("hemerit_short",    "date_label"),
+    "solit":      ("solit_short",      "solit_full"),
+    "temp":       ("temp_short",       "temp_full"),
+    "pressure":   ("pressure_short",   "pressure_full"),
+    "wind_speed": ("wind_speed_short", "wind_speed_full"),
+    "wind_dir":   ("wind_dir_short",   "wind_dir_full"),
+    "wind":       ("wind_short",       "wind_full"),
+    "precip":     ("precip_short",     "precip_full"),
+    "lokit":      ("lokit",            "lokit"),
+}
 
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
-DEFAULT_FORMAT = "{hemerit_short}, {annit_short}, {solit_short}  |  {temp_short}  {wind_short}  {precip_short}"
-DEFAULT_TOOLTIP = (
-    "{date_label}\n"
-    "{annit_full}  ({dattit_full})\n"
-    "{solit_full}\n"
-    "{orit_full}\n"
-    "\n"
-    "{temp_full}\n"
-    "{pressure_full}\n"
-    "{wind_speed_full}  {wind_dir_full}\n"
-    "{precip_full}\n"
-    "{lokit}"
-)
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--unit", required=True, choices=sorted(UNIT_DISPLAY),
+                        help="which value to display (see UNITS in --help)")
     parser.add_argument("--lokit", default=DEFAULT_LOKIT,
                         help="Lokit coordinate for location (Solit + weather)")
-    parser.add_argument("--format", default=DEFAULT_FORMAT,
-                        help="panel text format string")
-    parser.add_argument("--tooltip-format", default=DEFAULT_TOOLTIP,
-                        help="tooltip format string ('\\n' becomes a real line break)")
     parser.add_argument("--sig-digits", type=int, default=CONTINUOUS_SIG_DIGITS,
                         help=f"significant digits for continuous Janus values (default: {CONTINUOUS_SIG_DIGITS})")
     parser.add_argument("--cache-minutes", type=int, default=15,
                         help="cache API response for this many minutes (default: 15)")
     args = parser.parse_args()
 
-    now = datetime.now(timezone.utc)
-    tokens = build_tokens(now, args.lokit, args.cache_minutes, args.sig_digits)
-    label = render(args.format, tokens)
-    tooltip_text = render(args.tooltip_format, tokens)
-    if not HAVE_EPHEM:
-        tooltip_text += "\n(install ephem for Annit, Hemerit, Solit)"
+    short_key, full_key = UNIT_DISPLAY[args.unit]
+
+    try:
+        now = datetime.now(timezone.utc)
+        tokens = build_tokens(now, args.lokit, args.cache_minutes, args.sig_digits)
+        label = tokens[short_key]
+        tooltip = tokens[full_key]
+    except Exception as exc:
+        label = f"[{args.unit} unavailable]"
+        tooltip = str(exc)
+
     print("<txt>" + label + "</txt>")
-    print("<tool>" + tooltip_text.replace("\n", "&#10;") + "</tool>")
+    print("<tool>" + tooltip.replace("\n", "&#10;") + "</tool>")
 
 
 if __name__ == "__main__":
