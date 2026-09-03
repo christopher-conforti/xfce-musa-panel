@@ -265,7 +265,7 @@ def janus_notation(value, sig_digits=6, trim_trailing_zeros=False):
     value = abs(value)
 
     if value == 0:
-        return janus_integer(0) + "*" + "0" * sig_digits
+        return janus_integer(0) + "°" + "0" * sig_digits
 
     digits, magnitude = to_balanced_dozenal_mantissa_digits(value, sig_digits)
 
@@ -279,7 +279,7 @@ def janus_notation(value, sig_digits=6, trim_trailing_zeros=False):
     mantissa_str = "".join(render_digit(d) for d in digits)
     magnitude_str = janus_integer(magnitude)
 
-    return f"{magnitude_str}*{mantissa_str}"
+    return f"{magnitude_str}°{mantissa_str}"
 
 if __name__ == "__main__":
     print("Whole-count values (exact digits, no magnitude notation):")

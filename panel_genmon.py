@@ -342,7 +342,7 @@ def _full_notation(value):
     forms.  Strips the prefix from a 6-sig-digit janus_notation() result so
     the tooltip reads as a plain digit string rather than scientific notation."""
     s = janus_notation(abs(value), sig_digits=_FULL_SIG_DIGITS)
-    mantissa = s.split("*", 1)[1] if "*" in s else s
+    mantissa = s.split("°", 1)[1] if "°" in s else s
     if value < 0:
         neg_map = {"0": "0", "1": "①", "2": "②", "3": "③", "4": "④", "5": "⑤", "6": "⑥",
                    "①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5", "⑥": "6"}
@@ -364,12 +364,14 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
     dattit = int((now - EPOCH).days)
     orit = (now - EPOCH).total_seconds() / CHRONIT_SECONDS
     dattit_str = janus_integer(dattit)
+    dattit_mag_str = janus_notation(dattit, sig_digits=sig_digits)
     orit_str = janus_notation(orit, sig_digits=sig_digits)
     orit_bare_str = _full_notation(orit)
 
     tokens = {
         # Clock tokens
-        "dattit": dattit_str, "dattit_short": f"Da {dattit_str}", "dattit_full": f"{dattit_str} Dattit",
+        "dattit": dattit_str, "dattit_mag": dattit_mag_str,
+        "dattit_short": f"Da {dattit_str}", "dattit_full": f"{dattit_str} Dattit",
         "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_bare_str} Orit",
         "orit_bare": orit_bare_str,
         "annit": "?", "annit_short": "An ?", "annit_full": "? Annit",
@@ -401,8 +403,10 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
     if HAVE_EPHEM:
         info = hemerit_info(now)
         annit_str = janus_integer(info["annit"])
+        annit_mag_str = janus_notation(info["annit"], sig_digits=sig_digits)
         tokens.update({
             "annit": annit_str,
+            "annit_mag": annit_mag_str,
             "annit_short": f"An {annit_str}",
             "annit_full": f"{annit_str} Annit",
             "hemerit": info["hemerit"],
@@ -425,11 +429,13 @@ def build_tokens(now, lokit, sig_digits, need_weather=False):
         solit = solit_for(now, ephem_lat, ephem_lon)
         solit_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=5)
         solit_full_str = janus_mantissa_fixed(solit, fixed_magnitude=-1, sig_digits=5)
+        solit_mag_str = janus_notation(solit, sig_digits=sig_digits)
         tokens.update({
             "solit": solit_str,
             "solit_short": f"So {solit_str}",
             "solit_full": f"{solit_full_str} Solit",
             "solit_bare": solit_full_str,
+            "solit_mag": solit_mag_str,
         })
 
     # Weather tokens
@@ -552,14 +558,13 @@ UNIT_LABEL = {
 # (bare_key, mag_key)
 # bare_key: mantissa/fixed, no label (default, --mag off)
 # mag_key:  magnitude notation, no label (--mag on)
-# Solit always uses fixed notation regardless of --mag.
 # Wind is a special case in main() for --label composition.
 UNIT_DISPLAY = {
-    "annit":      ("annit",            "annit"),
-    "dattit":     ("dattit",           "dattit"),
+    "annit":      ("annit",            "annit_mag"),
+    "dattit":     ("dattit",           "dattit_mag"),
     "orit":       ("orit_bare",        "orit"),
     "hemerit":    ("hemerit",          "hemerit"),
-    "solit":      ("solit_bare",       "solit_bare"),
+    "solit":      ("solit_bare",       "solit_mag"),
     "temp":       ("temp_bare",        "temp"),
     "pressure":   ("pressure_bare",    "pressure"),
     "wind_speed": ("wind_speed_bare",  "wind_speed"),
