@@ -580,11 +580,17 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
                 azimit_str = janus_notation(azimit_val, sig_digits=sig_digits)
                 dist_ma    = result["distance_km"] * 1000.0 / _MACRIT_M
                 dist_ma_str = janus_notation(dist_ma, sig_digits=sig_digits)
-                cap_at     = result["captured_at"][:10] if result["captured_at"] else "?"
+                cap_iso    = result["captured_at"]
+                if cap_iso:
+                    cap_dt  = datetime.fromisoformat(cap_iso.replace("Z", "+00:00"))
+                    age_ch  = (now - cap_dt).total_seconds() / CHRONIT_SECONDS
+                    age_str = janus_notation(age_ch, sig_digits=sig_digits)
+                else:
+                    age_str = "?"
                 rad_desc   = (
                     f"Ambient gamma dose rate\n"
                     f"{src_lokit}\n"
-                    f"{azimit_str} Az · {dist_ma_str} Ma · {cap_at}"
+                    f"{azimit_str} Az · {dist_ma_str} Ma · {age_str} Ch ago"
                 )
             else:
                 rad_str = rad_bare = "?"
