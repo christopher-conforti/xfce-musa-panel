@@ -382,24 +382,25 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
     orit = (now - EPOCH).total_seconds() / CHRONIT_SECONDS
     dattit_str = janus_integer(dattit)
     orit_str = janus_notation(orit, sig_digits=sig_digits)
-    orit_full_str = _full_notation(orit)
+    orit_bare_str = _full_notation(orit)
 
     tokens = {
         # Clock tokens
         "dattit": dattit_str, "dattit_short": f"Da {dattit_str}", "dattit_full": f"{dattit_str} Dattit",
-        "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_full_str} Orit",
+        "orit": orit_str, "orit_short": f"Or {orit_str}", "orit_full": f"{orit_bare_str} Orit",
+        "orit_bare": orit_bare_str,
         "annit": "?", "annit_short": "An ?", "annit_full": "? Annit",
         "hemerit": "?", "hemerit_short": "He ?", "hemerit_full": "? Hemerit",
         "holiday": "", "month": "", "week": "", "weekday": "",
         "day_of_month": "", "day_element": "",
         "date_label": "(needs ephem)",
-        "solit": "?", "solit_short": "So ?", "solit_full": "? Solit",
+        "solit": "?", "solit_short": "So ?", "solit_full": "? Solit", "solit_bare": "?",
         # Weather tokens (prefilled with ? for error cases)
-        "temp": "?", "temp_short": "Th ?", "temp_full": "? Thermit",
-        "pressure": "?", "pressure_short": "Ba ?", "pressure_full": "? Barit",
-        "wind_speed": "?", "wind_speed_short": "Ta ?", "wind_speed_full": "? Tachit",
-        "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit",
-        "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit",
+        "temp": "?", "temp_short": "Th ?", "temp_full": "Th ?", "temp_bare": "?",
+        "pressure": "?", "pressure_short": "Ba ?", "pressure_full": "? Barit", "pressure_bare": "?",
+        "wind_speed": "?", "wind_speed_short": "Ta ?", "wind_speed_full": "? Tachit", "wind_speed_bare": "?",
+        "wind_dir": "?", "wind_dir_short": "Az ?", "wind_dir_full": "? Azimit", "wind_dir_bare": "?",
+        "wind_short": "Az ? Ta ?", "wind_full": "? Tachit  ? Azimit", "wind_bare": "?  ?",
         "precip": "?", "precip_short": "Va ?", "precip_full": "? Valit",
         "lokit": lokit,
     }
@@ -436,6 +437,7 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
             "solit": solit_str,
             "solit_short": f"So {solit_str}",
             "solit_full": f"{solit_full_str} Solit",
+            "solit_bare": solit_full_str,
         })
 
     # Weather tokens
@@ -458,11 +460,16 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
         wdir_full_str = _full_notation(wdir_az)
         tokens.update({
             "temp": temp_str, "temp_short": f"Th {temp_fixed_str}", "temp_full": f"Th {temp_fixed_str}",
+            "temp_bare": temp_fixed_str,
             "pressure": pres_str, "pressure_short": f"Ba {pres_str}", "pressure_full": f"{pres_full_str} Barit",
+            "pressure_bare": pres_full_str,
             "wind_speed": wspd_str, "wind_speed_short": f"Ta {wspd_str}", "wind_speed_full": f"{wspd_full_str} Tachit",
+            "wind_speed_bare": wspd_full_str,
             "wind_dir": wdir_str, "wind_dir_short": f"Az {wdir_str}", "wind_dir_full": f"{wdir_full_str} Azimit",
+            "wind_dir_bare": wdir_full_str,
             "wind_short": f"Az {wdir_str} Ta {wspd_str}",
             "wind_full": f"{wspd_full_str} Tachit  {wdir_full_str} Azimit",
+            "wind_bare": f"{wdir_full_str}  {wspd_full_str}",
             "precip": prec_str, "precip_short": f"Va {prec_str}", "precip_full": f"{prec_str} Valit",
         })
     except Exception:
@@ -473,19 +480,21 @@ def build_tokens(now, lokit, cache_minutes, sig_digits):
 # ---------------------------------------------------------------------------
 # Unit registry: unit name -> (short_key, full_key) into tokens dict
 # ---------------------------------------------------------------------------
+# (short_key, full_key, bare_key)
+# short/full used when --label; bare used when label is off (default).
 UNIT_DISPLAY = {
-    "annit":      ("annit_short",      "annit_full"),
-    "dattit":     ("dattit_short",     "dattit_full"),
-    "orit":       ("orit_short",       "orit_full"),
-    "hemerit":    ("hemerit_short",    "date_label"),
-    "solit":      ("solit_short",      "solit_full"),
-    "temp":       ("temp_short",       "temp_full"),
-    "pressure":   ("pressure_short",   "pressure_full"),
-    "wind_speed": ("wind_speed_short", "wind_speed_full"),
-    "wind_dir":   ("wind_dir_short",   "wind_dir_full"),
-    "wind":       ("wind_short",       "wind_full"),
-    "precip":     ("precip_short",     "precip_full"),
-    "lokit":      ("lokit",            "lokit"),
+    "annit":      ("annit_short",      "annit_full",      "annit"),
+    "dattit":     ("dattit_short",     "dattit_full",     "dattit"),
+    "orit":       ("orit_short",       "orit_full",       "orit_bare"),
+    "hemerit":    ("hemerit_short",    "date_label",      "date_label"),
+    "solit":      ("solit_short",      "solit_full",      "solit_bare"),
+    "temp":       ("temp_short",       "temp_full",       "temp_bare"),
+    "pressure":   ("pressure_short",   "pressure_full",   "pressure_bare"),
+    "wind_speed": ("wind_speed_short", "wind_speed_full", "wind_speed_bare"),
+    "wind_dir":   ("wind_dir_short",   "wind_dir_full",   "wind_dir_bare"),
+    "wind":       ("wind_short",       "wind_full",       "wind_bare"),
+    "precip":     ("precip_short",     "precip_full",     "precip"),
+    "lokit":      ("lokit",            "lokit",           "lokit"),
 }
 
 # ---------------------------------------------------------------------------
@@ -498,6 +507,8 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--unit", required=True, choices=sorted(UNIT_DISPLAY),
                         help="which value to display (see UNITS in --help)")
+    parser.add_argument("--label", action="store_true", default=False,
+                        help="prefix output with unit abbreviation (e.g. 'Th', 'So')")
     parser.add_argument("--lokit", default=DEFAULT_LOKIT,
                         help="Lokit coordinate for location (Solit + weather)")
     parser.add_argument("--sig-digits", type=int, default=CONTINUOUS_SIG_DIGITS,
@@ -506,13 +517,17 @@ def main():
                         help="cache API response for this many minutes (default: 15)")
     args = parser.parse_args()
 
-    short_key, full_key = UNIT_DISPLAY[args.unit]
+    short_key, full_key, bare_key = UNIT_DISPLAY[args.unit]
 
     try:
         now = datetime.now(timezone.utc)
         tokens = build_tokens(now, args.lokit, args.cache_minutes, args.sig_digits)
-        label = tokens[short_key]
-        tooltip = tokens[full_key]
+        if args.label:
+            label = tokens[short_key]
+            tooltip = tokens[full_key]
+        else:
+            label = tokens[bare_key]
+            tooltip = tokens[bare_key]
     except Exception as exc:
         label = f"[{args.unit} unavailable]"
         tooltip = str(exc)
