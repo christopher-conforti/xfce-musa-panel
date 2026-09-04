@@ -634,7 +634,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
                 rad_desc   = (
                     f"Ambient gamma dose rate\n"
                     f"{src_lokit}\n"
-                    f"{azimit_str} Az · {dist_ma_str} Ma · {age_str} Ch ago"
+                    f"Az {azimit_str} · Ma {dist_ma_str} · Ch {age_str}"
                 )
             else:
                 rad_str = rad_bare = "?"
