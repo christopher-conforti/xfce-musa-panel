@@ -166,15 +166,7 @@ def janus_mantissa_fixed(value, fixed_magnitude, sig_digits):
     if scaled == 0:
         digits = [0] * sig_digits
     else:
-        raw_digits = []
-        n = int(scaled)
-        while n > 0:
-            raw_digits.append(n % 12)
-            n //= 12
-        raw_digits.reverse()
-        raw_digits = [0] + raw_digits
-        _carry_to_balanced(raw_digits)
-        balanced = raw_digits
+        balanced = to_balanced_dozenal_integer_digits(int(scaled))
 
         # No leading-zero trim here -- this is fixed-point, not floating-point normalization.
         # The whole point is to stay at the fixed scale implied by fixed_magnitude, rather than
