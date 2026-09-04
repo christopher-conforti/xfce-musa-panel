@@ -8,13 +8,12 @@ script. Each invocation outputs exactly ONE unit, determined by --unit.
 Run multiple genmon instances, each with a different --unit, to build a
 composable panel where every slot is independently movable.
 
-Panel text: the unit's short form (e.g. "An 1992")
-Tooltip:    the unit's full form (e.g. "1992 Annit")
+Panel text: the unit's short form (e.g. "An 68")
+Tooltip:    the unit's full form (e.g. "68 Annit")
 
-EPOCH is proleptic Gregorian April 1, AD 33, 12:15:00 UTC -- the
-Humphreys-Waddington crucifixion date (Julian April 3, 14:15 Jerusalem
-local time) converted to UTC. CHRONIT_SECONDS is the exact constant from
-the cca skillset (janus-units/scripts/).
+EPOCH is midnight UTC, 22 December 1957 — the canonical Janus epoch as
+defined on musa.bet. CHRONIT_SECONDS is the exact constant from the cca
+skillset (janus-units/scripts/).
 
 Annit, Hemerit, and Solit all require the `ephem` package. If ephem is not
 installed the script still outputs Dattit, Orit, and all weather units, and
@@ -67,7 +66,7 @@ from janus_notation import janus_notation, janus_integer, janus_mantissa_fixed
 # ---------------------------------------------------------------------------
 # Civilization epoch and time constants
 # ---------------------------------------------------------------------------
-EPOCH = datetime(33, 4, 1, 12, 15, 0, tzinfo=timezone.utc)
+EPOCH = datetime(1957, 12, 22, 0, 0, 0, tzinfo=timezone.utc)
 CHRONIT_SECONDS = 643391.816709006
 CONTINUOUS_SIG_DIGITS = 3   # panel default; --sig-digits overrides
 
