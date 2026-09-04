@@ -549,7 +549,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
             temp_th   = (weather["temp_c"] + 273.15) / THERMIT_K
             pres_ba   = (weather["pressure_hpa"] * 100.0) / BARIT_PA
             wind_ta   = weather["wind_ms"] / TACHIT_MS
-            wdir_az   = (weather["wind_deg"] * math.pi / 180.0) / AZIMIT_RAD
+            wdir_az   = (weather["wind_deg"] / 30.0 + 3) % 12  # Azimit: 0=west, clockwise
             precip_va = round(weather["precip_pct"])
             temp_str  = janus_notation(temp_th,  sig_digits=sig_digits)
             pres_str  = janus_notation(pres_ba,  sig_digits=sig_digits)
@@ -620,7 +620,7 @@ def build_tokens(now, lokit, sig_digits, need_weather=False, need_radiation=Fals
                 src_lat, src_lon = result["latitude"], result["longitude"]
                 src_lokit  = lokit_encode(src_lat, src_lon)
                 bearing    = _bearing_deg(lat_north, ephem_lon, src_lat, src_lon)
-                azimit_val = bearing / 30.0  # 1 Azimit = 30°
+                azimit_val = (bearing / 30.0 + 3) % 12  # Azimit: 0=west, clockwise
                 azimit_str = janus_notation(azimit_val, sig_digits=sig_digits)
                 dist_ma    = result["distance_km"] * 1000.0 / _MACRIT_M
                 dist_ma_str = janus_notation(dist_ma, sig_digits=sig_digits)
