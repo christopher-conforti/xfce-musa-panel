@@ -34,7 +34,7 @@ ARGUMENTS:
                         annit, dattit, orit, hemerit, solit,
                         temp, pressure, wind_speed, wind_dir, wind, precip,
                         lokit
-    --lokit           Lokit coordinate of the location (default: R-1992-Q4ETQXWDJD9).
+    --lokit           Lokit coordinate of the location (default: R-68-Q4ETQXWDJD9).
                       Required for Solit and all weather units.
     --sig-digits      Significant digits for continuous Janus values (default 3).
     --cache-minutes   Cache the Open-Meteo API response for this many minutes
@@ -90,7 +90,7 @@ OPENRADIATION_API_KEY    = "bde8ebc61cb089b8cc997dd7a0d0a434"  # test key; repla
 OPENRADIATION_SEARCH_DEG = 5.0   # bounding-box half-width; closest result is selected by distance
 
 # ---------------------------------------------------------------------------
-# Default location: R-1992-Q4ETQXWDJD9 observatory
+# Default location: R-68-Q4ETQXWDJD9 observatory
 # Lokit: Lo w3⑤④1④n14①②0  (lon ~76.678° W, lat ~39.757° N)
 # ---------------------------------------------------------------------------
 DEFAULT_LOKIT = "Lo w3⑤④1④n14①②0"
