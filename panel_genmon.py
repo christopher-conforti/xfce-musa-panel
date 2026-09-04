@@ -327,17 +327,17 @@ def hemerit_info(dt):
 
 
 def solit_for(dt, lat, lon):
-    """Elapsed Chronits since true local solar noon; negative in the morning.
+    """Elapsed Chronits since local sunrise; negative before sunrise.
     lat/lon follow ephem convention: lat positive=north, lon positive=east."""
     obs = ephem.Observer()
     obs.lat = str(lat)
     obs.lon = str(lon)
     obs.date = dt.strftime("%Y/%m/%d %H:%M:%S")
     sun = ephem.Sun()
-    prev_transit = _to_utc(obs.previous_transit(sun))
-    next_transit = _to_utc(obs.next_transit(sun))
-    since_prev = (dt - prev_transit).total_seconds()
-    until_next = (next_transit - dt).total_seconds()
+    prev_rising = _to_utc(obs.previous_rising(sun))
+    next_rising = _to_utc(obs.next_rising(sun))
+    since_prev = (dt - prev_rising).total_seconds()
+    until_next = (next_rising - dt).total_seconds()
     if since_prev <= until_next:
         seconds = since_prev
     else:
@@ -658,7 +658,7 @@ UNIT_DESC = {
     "dattit":     "Days since epoch",
     "orit":       "Elapsed Chronits since epoch",
     "hemerit":    "Civil date",
-    "solit":      "Time of day (solar noon = 0)",
+    "solit":      "Time of day (sunrise = 0)",
     "temp":       "Temperature",
     "pressure":   "Atmospheric pressure",
     "wind_speed": "Wind speed",
