@@ -28,11 +28,11 @@ continuous measurements -- so this module covers two distinct cases:
     Latinized convention observed on the Janus social units page
     ("So 2*11538": magnitude 2, mantissa 11538).
 
-Both paths share the same underlying rule-of-six carry logic, verified
+Both paths use the same LSB-to-MSB extraction algorithm verified
 digit-for-digit against jalibrary.js's own janusInt() on every shared
-test case (9, 18, 19, 30, 73); they differ only in whether the input is
-a continuous measurement that gets windowed to significant digits, or
-an exact count that doesn't.
+test case (9, 18, 19, 30, 68, 72, 73, 864); they differ only in whether
+the input is a continuous measurement that gets windowed to significant
+digits, or an exact count that doesn't.
 """
 import math
 
@@ -44,67 +44,51 @@ def render_digit(d):
         return CIRCLED_DIGITS[-d]
     return DIGIT_CHARS[d]
 
-def _carry_to_balanced(raw_digits):
-    """
-    In-place rule-of-six carry over a list of unbalanced (0..11) base-12
-    digits, most significant first, with a leading 0 already prepended
-    as headroom for an overflow carry. Mutates and returns the list.
-
-    Digits 7-11 always carry (digit-12, +1 to the left) since they have
-    no balanced representative otherwise. Digit 6 carries (becomes -6,
-    +1 left) only if a nonzero digit follows it somewhere to its right
-    WITHIN THIS LIST -- never against precision outside the list, which
-    is what makes this safe to reuse for a precision-windowed mantissa:
-    a value's invisible tail past the requested window must not change
-    what's shown. Resolved right-to-left, since "does anything follow
-    me" depends on digits to the right, which may themselves have just
-    been resolved.
-    """
-    anything_nonzero_after = False
-    for i in range(len(raw_digits) - 1, 0, -1):
-        d = raw_digits[i]
-        carries = d > 6 or (d == 6 and anything_nonzero_after)
-        if carries:
-            raw_digits[i] = d - 12
-            raw_digits[i - 1] += 1
-        if raw_digits[i] != 0:
-            anything_nonzero_after = True
-    return raw_digits
-
 def to_balanced_dozenal_integer_digits(n):
     """
-    Convert any integer (positive, negative, or zero) to its EXACT
-    balanced-dozenal digit representation -- no truncation, no
-    significant-digit budget, and no ASCII sign character. True Janus
-    notation has no separate sign marker at all: a negative value is
-    expressed purely by negating its balanced digits (each one still
-    within -6..6), the same digit alphabet used for everything else.
-    This works because balanced-dozenal representation is linear -- if
-    digits d_i represent n, then -d_i represent -n exactly, carries and
-    all. Returns a list of digits (-6..6), most significant first, with
-    no leading zero (except the single digit [0] for n == 0).
+    Convert a non-negative integer to its EXACT balanced-dozenal digit
+    representation -- no truncation, no significant-digit budget.
+    Returns a list of digits (-6..6), most significant first, with no
+    leading zero (except the single digit [0] for n == 0).
+
+    Uses the same LSB-to-MSB extraction algorithm as jalibrary.js's
+    janusInt(), including its quotient-6 special case: after placing a
+    remainder digit (0..6), if the remaining quotient is itself ≡ 6
+    (mod 12), preemptively insert -6 and adjust the quotient to prevent
+    6 from appearing in a non-final position.  This allows 6 as a digit
+    only when the remaining number at that step IS exactly 6 (remainder
+    = 6, quotient = 0), placing it naturally as the MSB.
+
+    The prior right-to-left carry approach applied a different rule
+    (carry 6 whenever anything nonzero followed it) that diverged from
+    the canonical form for numbers like 68: correct is "6④" but the old
+    code produced "1⑥④" (b192376 in cca-toolkit).
+
+    Verified against jalibrary.js for: 9, 18, 19, 30, 68, 72, 73, 864.
+
+    Note: handle the sign of negative integers at call sites by negating
+    the returned digits; this function expects n >= 0.
     """
+    if n < 0:
+        raise ValueError("expects a non-negative integer; handle sign separately")
     if n == 0:
         return [0]
 
-    negative = n < 0
-    raw_digits = []
-    m = abs(n)
-    while m > 0:
-        raw_digits.append(m % 12)
-        m //= 12
-    raw_digits.reverse()
+    result = []
+    m = n
+    while m != 0:
+        remainder = m % 12
+        m = (m - remainder) // 12
+        if remainder > 6:
+            result.insert(0, remainder - 12)
+            m += 1
+        else:
+            result.insert(0, remainder)
+            if m % 12 == 6:
+                result.insert(0, -6)
+                m = 1 + (m - 6) // 12
 
-    raw_digits = [0] + raw_digits
-    _carry_to_balanced(raw_digits)
-
-    while len(raw_digits) > 1 and raw_digits[0] == 0:
-        raw_digits.pop(0)
-
-    if negative:
-        raw_digits = [-d for d in raw_digits]
-
-    return raw_digits
+    return result
 
 def janus_integer(n):
     """
@@ -115,9 +99,12 @@ def janus_integer(n):
     scale-signaling machinery magnitude notation exists to provide. Sign
     is carried entirely by the digits: e.g. janus_integer(19) -> '2⑤',
     janus_integer(-2) -> '②' (not '-2'). Verified digit-for-digit
-    against jalibrary.js's janusInt() for 9, 18, 19, 30, 73.
+    against jalibrary.js's janusInt() for 9, 18, 19, 30, 68, 72, 73, 864.
     """
-    digits = to_balanced_dozenal_integer_digits(n)
+    negative = n < 0
+    digits = to_balanced_dozenal_integer_digits(abs(n))
+    if negative:
+        digits = [-d for d in digits]
     return "".join(render_digit(d) for d in digits)
 
 def to_balanced_dozenal_mantissa_digits(value, sig_digits):
@@ -148,25 +135,8 @@ def to_balanced_dozenal_mantissa_digits(value, sig_digits):
     scale_pow = est_magnitude - sig_digits + 1
     scaled = round(value / (12.0 ** scale_pow))
 
-    raw_digits = []
-    n = int(scaled)
-    if n == 0:
-        raw_digits = [0]
-    while n > 0:
-        raw_digits.append(n % 12)
-        n //= 12
-    raw_digits.reverse()
-
-    raw_digits = [0] + raw_digits
-    _carry_to_balanced(raw_digits)
-    balanced = raw_digits
-
+    balanced = to_balanced_dozenal_integer_digits(int(scaled))
     top_place = scale_pow + len(balanced) - 1
-    first_nonzero = 0
-    while first_nonzero < len(balanced) - 1 and balanced[first_nonzero] == 0:
-        first_nonzero += 1
-        top_place -= 1
-    balanced = balanced[first_nonzero:]
 
     digits = balanced[:sig_digits]
     while len(digits) < sig_digits:
